@@ -1,0 +1,545 @@
+/* ==========================================================================
+   VERTEX SYSTEMS - CORE STRUCTURAL BLUEPRINT
+   ========================================================================== */
+
+/* 1. GLOBAL RESET & BASE RULES */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #0b0f19;
+    /* Deep Tech Slate Dark Mode */
+    color: #e2e8f0;
+    /* Crisp Off-White Text */
+    line-height: 1.6;
+}
+
+/* 2. HEADER & NAVIGATION LAYOUT */
+header {
+    background-color: #111827;
+    /* Dark Obsidian Banner */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 4rem;
+    border-bottom: 2px solid #1f2937;
+    /* Clean Accent Separator */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+header .logo {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #3b82f6;
+    /* Cyber Blue Accent */
+}
+
+nav a {
+    color: #9ca3af;
+    text-decoration: none;
+    margin-left: 2rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+nav a:hover {
+    color: #3b82f6;
+    /* Smooth Hover Transition */
+}
+
+/* 3. MAIN WORKSPACE CONTAINER */
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+}
+
+/* 4. HERO INTRODUCTION SECTION */
+#hero {
+    text-align: center;
+    padding: 4rem 1rem 4rem 1rem;
+}
+
+#hero h1 {
+    font-size: 2.8rem;
+    color: #ffffff;
+    margin-bottom: 1.5rem;
+    font-weight: 800;
+}
+
+#hero p {
+    font-size: 1.2rem;
+    color: #9ca3af;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* 5. GENERAL SECTION CONTAINER BOILERPLATE */
+section {
+    background-color: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 3rem;
+    margin-bottom: 3rem;
+}
+
+section h2 {
+    font-size: 1.75rem;
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid #3b82f6;
+    /* Brand Identity Bar */
+    padding-left: 1rem;
+}
+
+.section-subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    padding-left: 1.3rem;
+}
+
+/* 6. SERVICES SECTION PILLARS */
+.services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.service-item {
+    background-color: #1f2937;
+    border-left: 4px solid #3b82f6;
+    /* Accent brand edge */
+    padding: 1.5rem;
+    border-radius: 0 6px 6px 0;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.service-item:hover {
+    transform: translateX(5px);
+    /* Smooth nudge forward on hover */
+    background-color: #253047;
+    /* Deepens slightly */
+}
+
+.service-item h4 {
+    color: #ffffff;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.service-item p {
+    font-size: 0.9rem;
+    color: #9ca3af;
+}
+
+/* 7. TRUST VAULT CREDENTIALS GRID */
+.credentials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.credential-card {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 2rem;
+    position: relative;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.credential-card:hover {
+    transform: translateY(-5px);
+    border-color: #3b82f6;
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.1);
+}
+
+.card-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.credential-card h3 {
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.credential-card p {
+    font-size: 0.9rem;
+    color: #9ca3af;
+    margin-bottom: 1.5rem;
+}
+
+.badge {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* 8. EXECUTIVE GATEWAY & MOCK DASHBOARD STYLES */
+.dashboard-wrapper {
+    position: relative;
+    background-color: #0b0f19;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 2rem;
+    overflow: hidden;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    filter: blur(2px);
+    opacity: 0.6;
+}
+
+.metric-box {
+    background-color: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 6px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 1rem;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.metric-status {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.metric-status.online {
+    color: #10b981;
+}
+
+.metric-status.secure {
+    color: #3b82f6;
+}
+
+.metric-status.complete {
+    color: #10b981;
+}
+
+.dashboard-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(17, 24, 39, 0.75);
+    backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.login-prompt {
+    text-align: center;
+    max-width: 380px;
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    padding: 2.5rem;
+    border-radius: 8px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.shield-lock {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.login-prompt h3 {
+    color: #ffffff;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+}
+
+.login-prompt p {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-bottom: 1.5rem;
+}
+
+.mock-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: #0b0f19;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    color: #ffffff;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.mock-btn {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: not-allowed;
+    transition: background-color 0.2s;
+}
+
+.mock-btn:hover {
+    background-color: #2563eb;
+}
+
+/* ==========================================================================
+   8.5 CONTACT SECURE GATEWAY FORM
+   ========================================================================== */
+.contact-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #0b0f19;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 2.5rem;
+}
+
+.secure-form {
+    max-width: 800px;
+    /* Or whatever width you've set */
+    margin: 0 auto;
+    /* 0 top/bottom, AUTOMATICALLY balances left/right */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    /* Automatically forces uniform vertical spacing between blocks */
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.input-group label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #9ca3af;
+    font-weight: 600;
+}
+
+.input-group input,
+.input-group select,
+.input-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: #111827;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+    /* Crucial: Forces padding to stay inside the boundary so nothing overflows */
+}
+
+/* Elegant focus halos */
+.input-group input:focus,
+.input-group select:focus,
+.input-group textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.submit-btn {
+    align-self: flex-start;
+    padding: 0.75rem 2rem;
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.submit-btn:hover {
+    background-color: #2563eb;
+}
+
+.submit-btn:active {
+    transform: scale(0.98);
+}
+
+/* 9. FOOTER COMPLIANCE BAR */
+footer {
+    text-align: center;
+    padding: 2rem;
+    background-color: #0b0f19;
+    border-top: 1px solid #1f2937;
+    color: #4b5563;
+    font-size: 0.85rem;
+}
+
+/* Fix dashboard spacing and create crisp grid boxes */
+.dashboard-container {
+    padding: 30px 15px;
+    margin-top: 20px;
+}
+
+.asset-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 30px;
+}
+
+/* Force clean visual grid boxes around every cell */
+.asset-table th,
+.asset-table td {
+    border: 1px solid #334155 !important;
+    /* Clean slate-gray border borders */
+    padding: 14px 12px !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.asset-table th {
+    background-color: #1e293b;
+    font-weight: 600;
+}
+
+/* Align text for row headers */
+.row-header {
+    text-align: left !important;
+    font-weight: bold;
+}
+
+/* Premium Vetting Gate Container */
+.executive-gate-wrapper {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: #0f172a;
+    /* Deep navy matching your credential background */
+    border: 2px solid #1e293b;
+    padding: 20px;
+    margin-top: 30px;
+}
+
+/* Force the dashboard content underneath to blur out */
+.dashboard-blur-container {
+    filter: blur(8px);
+    pointer-events: none;
+    /* Prevents text highlights or copying */
+    user-select: none;
+    opacity: 0.35;
+}
+
+/* The Vetting Panel Centered Over the Blurred Dashboard */
+.gatekeeper-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    background: rgba(30, 41, 59, 0.85);
+    /* Slick translucent slate */
+    backdrop-filter: blur(4px);
+    border: 1px solid #38bdf8;
+    /* Sharp Cyber Blue border accent */
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+    z-index: 10;
+}
+
+.gatekeeper-overlay h3 {
+    color: #38bdf8;
+    margin-top: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.gatekeeper-overlay p {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+}
+
+/* Professional Input Fields */
+.gate-input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #f8fafc;
+    box-sizing: border-box;
+}
+
+.gate-input:focus {
+    border-color: #38bdf8;
+    outline: none;
+}
+
+/* Premium Action Button */
+.gate-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.gate-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
