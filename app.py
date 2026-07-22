@@ -1,3 +1,22 @@
+"""
+=============================================================================
+Project: Vertex Systems Web Backend
+File: app.py
+Last Updated: July 20, 2026
+
+STATUS / NOTES:
+- Local Python virtual environment (.venv) fully repaired and updated.
+- Environment dependencies: Flask, flask-cors, pyodbc (see requirements.txt).
+- Backend running on local Flask dev server (port 8000).
+- Key features integrated: Security inputs, API endpoints, SQL database connections.
+
+TODO / NEXT STEPS (Target: Early August):
+1. Review persistent database connection strings and error-handling logic.
+2. Address architectural and API layout questions (scheduled for Tuesday/August).
+3. Test front-end integration (app.js, Dashboard.html) against live local endpoints.
+=============================================================================
+"""
+
 # ==============================================================================
 # SECTION 1: SYSTEM & STANDARD TOOLBOX IMPORTS
 # ==============================================================================
@@ -23,21 +42,27 @@ TEMPLATE_DIR = "./templates"
 # Your database connections would sit here too
 # ==================================================================================
 
-# 📡 Local Connection String with strict local trust settings baked in
+# --- DATABASE CONFIGURATION ---
+# Reads production settings from Environment Variables (Azure), with fallbacks to local SQLEXPRESS
+DB_DRIVER = os.environ.get("DB_DRIVER", "{ODBC Driver 18 for SQL Server}")
+DB_SERVER = os.environ.get("DB_SERVER", r".\SQLEXPRESS")
+DB_NAME = os.environ.get("DB_NAME", "VertexSecOps")
+DB_TRUSTED = os.environ.get("DB_TRUSTED", "yes")
+DB_CERT = os.environ.get("DB_CERT", "yes")
+
+# Dynamic Connection String built from environment or local defaults
 CONN_STR = (
-    r"Driver={ODBC Driver 18 for SQL Server};"
-    r"Server=.\SQLEXPRESS;"
-    r"Database=VertexSecOps;"
-    r"Trusted_Connection=yes;"
-    r"TrustServerCertificate=yes;"
-    # Enforce safe connection pool recycling behavior
-    r"Connection Timeout=30;"
+    f"Driver={DB_DRIVER};"
+    f"Server={DB_SERVER};"
+    f"Database={DB_NAME};"
+    f"Trusted_Connection={DB_TRUSTED};"
+    f"TrustServerCertificate={DB_CERT};"
+    "Connection Timeout=30;"
 )
 
 # 📑 Ensure the function stitches the tuple array together with a clean semicolon map
 def get_db_connection():
-    connection_string = "".join(CONN_STR)
-    return pyodbc.connect(connection_string)
+    return pyodbc.connect(CONN_STR)
 
 # Establish the live persistence bridge to your SQL Server
 conn = pyodbc.connect(CONN_STR)
