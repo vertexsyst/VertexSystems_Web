@@ -67,6 +67,14 @@ def get_db_connection():
 # Establish the live persistence bridge to your SQL Server
 conn = pyodbc.connect(CONN_STR)
 
+# --- PAGE ROUTES (Serves HTML Front-End) ---
+@app.route('/')
+def serve_index():
+    return app.send_static_file('index.html')
+
+@app.route('/dashboard')
+def serve_dashboard():
+    return app.send_static_file('Dashboard.html')
 
 # 📥 PIPELINE 1: Inbound Ticket Consumer (POST)
 @app.route('/api/tickets', methods=['POST'])
