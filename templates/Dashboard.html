@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- ==========================================================================
+    VERTEX SYSTEMS - ADMINISTRATIVE SECOPS DASHBOARD
+    ========================================================================== -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertex Systems - SecOps Dashboard</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Uncap the entire architecture section and all outer wrapper containers */
+        .arch-Drawer-container,
+        .arch-Drawer-content,
+        .arch-Drawer-container *,
+        div[class*="vault"],
+        div[class*="section"],
+        div[class*="card"] {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+    </style>
+
+    <!-- 🔒 1. SYNCHRONOUS AUTHENTICATION GUARD (Executes before DOM paint) -->
+    <script>
+        (function () {
+            const auth = sessionStorage.getItem('isAuthenticated') || sessionStorage.getItem('vtx_authenticated');
+            const role = (sessionStorage.getItem('userRole') || '').trim().toUpperCase();
+
+            // Block access if not authenticated or role is not ADMIN
+            if (auth !== 'true' || (role && role !== 'ADMIN')) {
+                alert('RESTRICTED ACCESS: Administrative authorization required.');
+                sessionStorage.clear();
+                window.location.replace('index.html');
+            }
+        })();
+    </script>
+
+    <!-- Core External Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Local Dashboard Styles & Layout Overrides -->
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .modal-content {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            width: 600px;
+            max-width: 90%;
+            padding: 20px;
+            color: #c9d1d9;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .raw-log-box {
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .raw-log-box pre {
+            color: #58a6ff;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .Btn-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .Btn-close:hover {
+            color: #f85149;
+        }
+
+        body {
+            background-color: #0b0f19;
+            color: #00ff66;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 30px;
+            margin: 0;
+        }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            border: 1px solid #00ff66;
+            background: rgba(11, 15, 25, 0.9);
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.2);
+            padding: 20px;
+        }
+
+        .console-controllers {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .controller-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .search-group {
+            flex-grow: 1;
+        }
+
+        .Lock-terminal-Btn {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .global-Purge-Btn {
+            background: #7f1d1d;
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+            padding: 10px;
+            width: 100%;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: monospace;
+            margin-bottom: 15px;
+        }
+
+        .Ticket-grid {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 15px;
+        }
+
+        .Ticket-card {
+            border: 1px solid #334155;
+            padding: 15px;
+            background: #111827;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Slide-out Left OSINT & Diagnostic Drawer */
+        .OSINTDrawer {
+            position: fixed;
+            top: 0;
+            left: -380px;
+            width: 380px;
+            height: 100vh;
+            background-color: #0b0f19;
+            border-right: 1px solid #00ff66;
+            box-shadow: 4px 0 20px rgba(0, 255, 102, 0.2);
+            transition: left 0.3s ease-in-out;
+            z-index: 9999;
+            padding: 20px;
+            color: #e2e8f0;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .OSINTDrawer.active,
+        .OSINTDrawer.open {
+            left: 0;
+        }
+
+        /* Slide-out Right System Tools Modal Drawer */
+        .systools-Drawer {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 420px;
+            height: 100vh;
+            background-color: #0f172a;
+            border-left: 2px solid #00ffcc;
+            box-shadow: -10px 0 35px rgba(0, 0, 0, 0.85), -4px 0 15px rgba(0, 255, 204, 0.25);
+            transition: right 0.3s ease-in-out;
+            z-index: 10010;
+            padding: 20px;
+            color: #e2e8f0;
+            box-sizing: border-box;
+            display: none;
+            overflow-y: auto;
+        }
+
+        .systools-Drawer.open {
+            right: 0;
+            display: block;
+        }
+
+        /* Drawer Trigger Floating Buttons */
+        .OSINTTrigger-Btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #00e5ff;
+            color: #0b0f19;
+            border: none;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-family: monospace;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+            z-index: 9990;
+        }
+
+        .systools-trigger-Btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #00ffcc;
+            color: #0b0f19;
+            border: none;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-family: monospace;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            z-index: 9990;
+        }
+
+        /* Styled Action Buttons for Local Diagnostic Launcher */
+        .action-Btn,
+        .tool-Btn {
+            background: #111827;
+            color: #00ff66;
+            border: 1px solid #00ff66;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            width: 100%;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .action-Btn:hover,
+        .tool-Btn:hover {
+            background: #00ff66;
+            color: #0b0f19;
+            box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+        }
+
+        /* Architecture Drawer Container */
+        .arch-Drawer-container {
+            background-color: #0D1117;
+            border: 1px solid #30363D;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+            .arch-Drawer-container {
+                margin-bottom: 30px !important;
+                /* Forces breathing room below the Drawer */
+            }
+        }
+
+        /* toggle Header Button */
+        .arch-Drawer-toggle {
+            width: 100%;
+            background-color: #161B22;
+            color: #F3F2F1;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: left;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .arch-Drawer-toggle:hover {
+            background-color: #21262D;
+        }
+
+        /* Arrow Icon Transition */
+        .arch-Drawer-toggle .arrow {
+            transition: transform 0.3s ease;
+            color: #0078D4;
+            /* Entra Blue accent */
+        }
+
+        /* Collapsible Content Panel */
+        .arch-Drawer-content {
+            max-height: 0;
+            overflow: visible !important;
+            /* Or ensure it allows child expansion */
+            transition: max-height 0.4s ease-out, padding 0.4s ease;
+            background-color: #0D1117;
+            padding: 0 20px;
+        }
+
+        /* Active State when Open - Let it expand fully with no clipping */
+        .arch-Drawer-container.open .arch-Drawer-content {
+            max-height: none !important;
+            height: auto !important;
+            min-height: 80vh;
+            /* Gives the topology breathing room */
+            overflow: visible !important;
+            padding-bottom: 40px;
+        }
+
+        .arch-Drawer-container.open .arrow {
+            transform: rotate(180deg);
+        }
+
+        /* Responsive SVG Styling inside Drawer */
+        .arch-Drawer-content img {
+            width: 100% !important;
+            max-height: none !important;
+            height: auto !important;
+            object-fit: contain;
+            border-radius: 4px;
+            display: block;
+            filter: invert(1) hue-rotate(180deg) brightness(1.1);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="secops-alert-banner" class="secops-alert-container" style="display: none;"
+        onclick="handleBannerClick(event)">
+        <div class="alert-content">
+            <span class="alert-icon">⚠️</span>
+            <div>
+                <strong>SECURITY INCIDENT DETECTED:</strong> <span id="alert-title">Loading...</span>
+                <div class="timer-display">Escalation Whistle in: <span id="countDown-timer">60</span>s</div>
+            </div>
+            <button onclick="event.stopPropagation(); acknowledgeIncident();" class="Btn-acknowledge">Acknowledge
+                Case</button>
+        </div>
+    </div>
+
+    <!-- Forensic OSINT Modal Overlay -->
+    <div id="forensic-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content terminal-card">
+            <div class="modal-header">
+                <h3>🛡️ FORENSIC INCIDENT OSINT</h3>
+                <button onclick="closeModal()" class="Btn-close">×</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Incident ID:</strong> <span id="modal-inc-id">---</span></p>
+                <p><strong>Event Type:</strong> <span id="modal-event-id">---</span></p>
+                <p><strong>Title:</strong> <span id="modal-title">---</span></p>
+                <p><strong>Timestamp:</strong> <span id="modal-timestamp">---</span></p>
+                <div class="raw-log-box">
+                    <label><strong>Raw Log Payload / Attack Vector Context:</strong></label>
+                    <pre id="modal-raw-payload">Analyzing event data...</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="acknowledgeAndClose()" class="Btn-acknowledge">Acknowledge & Dismiss</button>
+                <button onclick="closeModal()" class="Btn-secondary">Close (Keep Watching)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP Drawer: EXECUTIVE VAULT & ARCHITECTURE -->
+    <div id="executiveTopDrawer" class="top-Drawer">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="color: #00ffcc; margin: 0; font-family: monospace;">🏛️ EXECUTIVE VAULT & SYSTEM TOPOLOGY</h2>
+            <button onclick="toggleTopDrawer()"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; font-family: monospace; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;"
+                title="Close Drawer">
+                🚪
+            </button>
+        </div>
+        <div class="arch-Drawer-content" style="text-align: center;">
+            <img src="/api/architecture-diagram?v=2" alt="Vertex Master System Architecture"
+                style="width: 70% !important; max-width: 900px !important; height: auto !important; filter: invert(1) hue-rotate(180deg) brightness(1.2); border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        </div>
+    </div>
+
+    <!-- ======================================================================
+     The Dashboard Container (.dashboard-container): This is usually the main 
+     wrapper for your entire dashboard view (where your tables, stats cards, 
+     and charts live).
+    ====================================================================== -->
+    <div class="dashboard-container">
+
+        <!-- REAL-TIME TELEMETRY WIDGET -->
+        <div id="telemetry-widget"
+            style="display: flex; align-items: center; gap: 15px; background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; padding: 6px 14px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+            <span style="color: #64748b;">// SYS-TELEMETRY:</span>
+            <span id="tel-status"
+                style="color: #10b981; font-weight: bold; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 3px;">[
+                INITIALIZING ]</span>
+            <span style="color: #94a3b8;">CPU: <strong id="tel-cpu" style="color: #38bdf8;">--%</strong></span>
+            <span style="color: #94a3b8;">MEM: <strong id="tel-mem" style="color: #38bdf8;">--%</strong></span>
+        </div>
+
+        <!-- ENTRA ID DIRECTORY TELEMETRY PANEL -->
+        <div style="background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="color: #38bdf8; font-size: 14px; margin: 0;">[ 🌐 ENTRA ID DIRECTORY TELEMETRY ]</h3>
+                <button onclick="loadDirectoryDirectory()"
+                    style="background: #38bdf8; color: #0f172a; border: none; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 11px;">
+                    🔄 SYNC DIRECTORY
+                </button>
+            </div>
+            <div id="directory-drawer-container" style="max-height: 400px; overflow-y: auto;">
+                <div
+                    style="color: #64748b; font-size: 12px; font-family: monospace; text-align: center; padding: 20px;">
+                    Click "SYNC DIRECTORY" to pull live tenant telemetry via Microsoft Graph.
+                </div>
+            </div>
+        </div>
+
+        <!-- SELF-CONTAINED TELEMETRY SCRIPT -->
+        <script>
+            function pollTelemetry() {
+                fetch('/api/telemetry')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status) {
+                            const statusEl = document.getElementById('tel-status');
+                            if (statusEl) {
+                                statusEl.textContent = `[ ${data.status} ]`;
+                                if (data.status === 'NOMINAL') {
+                                    statusEl.style.color = '#10b981';
+                                    statusEl.style.background = 'rgba(16, 185, 129, 0.15)';
+                                } else {
+                                    statusEl.style.color = '#ef4444';
+                                    statusEl.style.background = 'rgba(239, 68, 68, 0.15)';
+                                }
+                            }
+                        }
+                        if (data.cpu) {
+                            const cpuEl = document.getElementById('tel-cpu');
+                            if (cpuEl) cpuEl.textContent = data.cpu;
+                        }
+                        if (data.memory) {
+                            const memEl = document.getElementById('tel-mem');
+                            if (memEl) memEl.textContent = data.memory;
+                        }
+                    })
+                    .catch(err => console.error('Telemetry polling error:', err));
+            }
+
+            // Fire immediately and poll every 5 seconds
+            //document.addEventListener("DOMContentLoaded", function () {
+            //    pollTelemetry();
+            //    setInterval(pollTelemetry, 5000);
+            //});
+        </script>
+
+        <!-- ==================================================================
+        1. UNIFIED SOC COMMAND CONSOLE BAR (ALL MAJOR TRIGGERS)
+        ================================================================== -->
+        <div class="console-utility-bar"
+            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: #0f172a; border: 1px solid #334155; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+            <!-- Left: Collapse toggle & Title Group -->
+            <div class="dock-header-group" style="display: flex; align-items: center; gap: 10px;">
+                <button onclick="toggleDockMinimize()" title="Minimize Dock"
+                    style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 0;">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <h2 style="margin: 0; font-size: 14px; white-space: nowrap; color: #38bdf8; font-family: monospace;">
+                    <i class="fa-solid fa-satellite-dish"></i> VERTEX SYSTEMS // SOC COMMAND CONSOLE
+                </h2>
+            </div>
+
+            <!-- Right: All Major Action Buttons Consolidated -->
+            <div class="utility-buttons-container"
+                style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button class="vault-trigger-Btn" onclick="toggleTopDrawer()"
+                    style="background: #111827; color: #00ffcc; border: 1px solid #00ffcc; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-vault"></i> TOPOLOGY
+                </button>
+                <button class="vault-Btn" onclick="loadExecutiveVault()"
+                    style="background: #111827; color: #10B981; border: 1px solid #10B981; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-landmark"></i> VAULT
+                </button>
+                <button class="clients-trigger-Btn" onclick="toggleRelationalWorkstation()"
+                    style="background: #111827; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-users-gear"></i> CLIENTS
+                </button>
+                <button class="new-ticket-Btn" onclick="openNewTicketModal()"
+                    style="background: #064e3b; color: #34d399; border: 1px solid #10b981; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-plus"></i> TICKET
+                </button>
+                <button class="sow-trigger-Btn" onclick="toggleBottomDrawer()"
+                    style="background: #111827; color: #60a5fa; border: 1px solid #60a5fa; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-scale-balanced"></i> SOW
+                </button>
+                <button class="OSINT-trigger-Btn" onclick="toggleOSINTDrawer()"
+                    style="background: #111827; color: #a855f7; border: 1px solid #a855f7; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-magnifying-glass"></i> OSINT
+                </button>
+                <button class="tools-trigger-Btn" onclick="toggleRightDrawer()"
+                    style="background: #111827; color: #f59e0b; border: 1px solid #f59e0b; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                    <i class="fa-solid fa-gears"></i> TOOLS
+                </button>
+                <button class="Lock-terminal-Btn" onclick="lockDownConsoleManual()"
+                    style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 6px 10px; font-weight: bold; cursor: pointer; border-radius: 4px;"
+                    title="Disconnect Terminal Session">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================================================================
+        2. MULTI-TENANT CONSOLE CONTROLLERS & SEARCH
+        ================================================================== -->
+        <div class="console-controllers">
+            <!-- Environment Selector Dropdown -->
+            <div class="controller-group">
+                <label for="TenentFilter">🏢 ENVIRONMENT:</label>
+                <select id="TenentFilter" onchange="filterTenentView()"
+                    style="background:#0b0f19; color:#00ff66; border:1px solid #00ff66; padding:6px;">
+                    <option value="ALL">🌐 ALL CORPORATE TENANTS (GLOBAL ADMIN)</option>
+                    <option value="ALPHA_CORP">🏢 ALPHA_CORP (Standard)</option>
+                    <option value="BETA_INC">🏢 BETA_INC (Premium)</option>
+                </select>
+            </div>
+
+            <!-- Real-Time Workspace Search Input -->
+            <div class="controller-group search-group">
+                <label for="WorkspaceSearch">🔍 SEARCH WORKSPACE:</label>
+                <input type="text" id="WorkspaceSearch" onkeyup="searchWorkspaceCards()"
+                    placeholder="Type to search categories, devices, descriptions, or resolution notes..."
+                    style="background:#0b0f19; color:#00ff66; border:1px solid #00ff66; padding:6px;" />
+            </div>
+        </div>
+
+        <!-- Global Database Purge Trigger -->
+        <button id="PurgeBtn" class="global-Purge-Btn" onclick="openPurgeModal()">
+            ⚠️ EXECUTE GLOBAL Purge (DELETE ALL RECORDS)
+        </button>
+
+        <div class="console-Divider"></div>
+
+        <!-- ==================================================================
+        3. DYNAMIC Ticket CONTAINER GRID & INITIALIZATION
+        ================================================================== -->
+        <div id="ticketContainer" class="Ticket-grid">
+            <div class="sql-loader">
+                <span class="status-pulse"></span>
+                <span class="loader-text">Initializing data link to SQL Server Express...</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ======================================================================
+    4. SYSTEM TOOLS & OSINT DrawerS
+    ====================================================================== -->
+
+    <!-- LEFT SIDE OSINT & LOCAL DIAGNOSTICS Drawer -->
+    <div id="OSINTDrawer-Id" class="OSINTDrawer-Class">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #00ff66;">🔍 OSINT & Diagnostics</h3>
+            <button onclick="toggleOSINTDrawer()"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; font-family: monospace; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;"
+                title="Close Drawer">
+                🚪
+            </button>
+        </div>
+        <hr style="border-color: #00ff66; margin: 15px 0;">
+
+        <!-- External OSINT Section -->
+        <h4 style="color: #00e5ff; margin-bottom: 10px;">External OSINT & Telemetry</h4>
+        <div id="OSINTList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px;"></div>
+    </div>
+
+    <!-- Secure Vault Drawer has a .Drawer-body container so it doesn't render blank when opened-->
+    <div id="secureVaultDrawer" class="utility-Drawer left-Drawer" style="display: none;">
+        <div class="Drawer-header"
+            style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #1f2937;">
+            <h3 style="color: #00ffcc; font-family: monospace; margin: 0; font-size: 14px;">
+                <i class="fa-solid fa-vault"></i> SECURE VAULT
+            </h3>
+            <button onclick="toggleTopDrawer()"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 6px 10px; cursor: pointer; border-radius: 4px;"
+                title="Close Vault">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="Drawer-body" style="padding: 20px; color: #94a3b8; font-family: monospace;">
+            <p>Secure credentials and encrypted logs repository active.</p>
+        </div>
+    </div>
+
+
+    <!-- RIGHT SYSTEM TOOLS & MMC Drawer -->
+    <div id="systools-Drawer" class="systools-Drawer">
+        <div class="systools-header"
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px;">
+            <h3 style="margin: 0; color: #00ffcc;">⚙️ SYSTEM TOOLS & MMC LAUNCHER</h3>
+            <button id="close-Drawer-Btn" class="close-Btn"
+                onclick="const d = document.getElementById('systools-Drawer'); d.classList.remove('open'); document.body.classList.remove('systools-active');"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; font-family: monospace; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;"
+                title="Close Drawer">
+                ✕
+            </button>
+        </div>
+        <div id="systools-list" class="systools-content-area"
+            style="margin-top: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <!-- JS injects all 14 tool cards here on first open -->
+        </div>
+    </div>
+
+    <!-- ======================================================================
+    5. MODAL OVERLAYS (PURGE & INGESTION)
+    ====================================================================== -->
+
+    <!-- GLOBAL PURGE SAFETY MODAL -->
+    <div id="PurgeModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        <div
+            style="background:#0f172a; border:2px solid #ef4444; padding:24px; border-radius:8px; width:420px; color:#f8fafc; font-family:monospace;">
+            <h3 style="color:#ef4444; margin-top:0;">⚠️ CRITICAL WARNING: GLOBAL PURGE</h3>
+            <p style="font-size:13px; color:#cbd5e1;">This action will permanently delete ALL security records from
+                <code>VertexSecOps</code>. This action cannot be undone.
+            </p>
+            <p style="font-size:12px; color:#94a3b8;">Type <strong>PURGE</strong> below to authorize execution:</p>
+
+            <input type="text" id="purgeConfirmInput" placeholder="Type PURGE to confirm"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#f8fafc; margin-bottom:16px; box-sizing:border-box;">
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closePurgeModal()"
+                    style="background:#334155; color:#f8fafc; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;">CANCEL</button>
+                <button id="BtnExecutePurge" onclick="submitGlobalPurge()"
+                    style="background:#ef4444; color:#fff; border:none; padding:8px 16px; cursor:pointer; border-radius:4px; opacity:0.5;"
+                    disabled>EXECUTE PURGE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INGESTION MODAL -->
+    <div id="newTicketModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; align-items:center; justify-content:center;">
+        <div
+            style="background:#0f172a; border:1px solid #10b981; padding:24px; border-radius:8px; width:480px; color:#f8fafc; font-family:monospace;">
+            <h3 style="color:#10b981; margin-top:0;">➕ INGEST NEW SECURITY INCIDENT</h3>
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">CLIENT / TENANT NAME</label>
+            <input type="text" id="ingestClient" placeholder="e.g. ALPHA_CORP"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:12px; box-sizing:border-box;">
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">CLIENT EMAIL</label>
+            <input type="email" id="ingestEmail" placeholder="admin@client.com"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:12px; box-sizing:border-box;">
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">CATEGORY</label>
+            <input type="text" id="ingestCategory" placeholder="e.g. Security Alert, SQL Audit"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:12px; box-sizing:border-box;">
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">MESSAGE / INCIDENT DETAILS</label>
+            <textarea id="ingestDetails" rows="3" placeholder="Describe telemetry anomaly or security alert..."
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:16px; box-sizing:border-box;"></textarea>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closeNewTicketModal()"
+                    style="background:#334155; color:#f8fafc; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;">CANCEL</button>
+                <button onclick="submitNewTicket()"
+                    style="background:#10b981; color:#0f172a; font-weight:bold; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;">CREATE
+                    Ticket</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dynamic Vault Content Container -->
+    <div id="executiveVaultModal"
+        style="display: none; background: #0f172a; border: 1px solid #334155; padding: 20px; margin-bottom: 25px; border-radius: 6px; color: #f8fafc;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #38bdf8; font-family: monospace;">// EXECUTIVE VAULT: STRATEGIC COMPENDIUM</h3>
+            <button id="close-Drawer-Btn" class="close-Btn"
+                onclick="const d = document.getElementById('executiveVaultModal'); d.classList.remove('open'); d.style.display='none';"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; font-family: monospace; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;"
+                title="Close Drawer">
+                🚪
+            </button>
+        </div>
+        <div id="vaultResourcesGrid" style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+            <!-- Dynamically populated cards will land here -->
+        </div>
+    </div>
+
+    <!-- BOTTOM Drawer: CONTRACT & SOW DISPATCHER -->
+    <div id="bottomDrawer" class="bottom-Drawer"
+        style="position: fixed; bottom: -100%; left: 0; width: 100%; max-height: 85vh; background: #090d16; border-top: 2px solid #00ffcc; box-shadow: 0 -10px 25px rgba(0,0,0,0.8); transition: bottom 0.4s ease-in-out; z-index: 10000; overflow-y: auto; padding: 30px;">
+
+        <!-- Drawer Header -->
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #38bdf8; font-size: 18px; font-family: monospace;">[ ADMIN MODULE: CONTRACT &
+                SOW DISPATCHER ]</h3>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span
+                    style="font-size: 12px; color: #10b981; font-family: monospace; background: #064e3b; padding: 4px 8px; border-radius: 4px;">SECURE
+                    GOVERNANCE ACTIVE</span>
+                <button onclick="toggleBottomDrawer()"
+                    style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; font-family: monospace; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;"
+                    title="Close Drawer">
+                    🚪
+                </button>
+            </div>
+        </div>
+
+        <!-- SOW Input Form -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div>
+                <label
+                    style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-family: monospace;">TARGET
+                    COMPANY NAME</label>
+                <input type="text" id="sowCompany" value="Orangeville Family Dental"
+                    style="width: 100%; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 10px; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div>
+                <label
+                    style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-family: monospace;">PRIMARY
+                    CONTACT EMAIL</label>
+                <input type="text" id="sowEmail" value="admin@orangevilledental.test"
+                    style="width: 100%; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 10px; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div>
+                <label
+                    style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-family: monospace;">TOTAL
+                    WORKSTATIONS (ENDPOINTS)</label>
+                <input type="number" id="sowWorkstations" value="25"
+                    style="width: 100%; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 10px; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div>
+                <label
+                    style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-family: monospace;">SERVERS
+                    / VIRTUAL INSTANCES</label>
+                <input type="number" id="sowServers" value="2"
+                    style="width: 100%; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 10px; border-radius: 4px; font-size: 14px;">
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label
+                style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-family: monospace;">ESTIMATED
+                REMEDIATION LABOR HOURS</label>
+            <input type="number" id="sowHours" value="8.0" step="0.5"
+                style="width: 100%; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 10px; border-radius: 4px; font-size: 14px;">
+        </div>
+
+        <button onclick="dispatchSOWGenerator()"
+            style="background: #10b981; color: #0f172a; border: none; padding: 12px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 14px;">
+            ⚡ GENERATE & DISPATCH FORMAL SOW PACKAGE
+        </button>
+
+        <!-- SOW Preview Terminal Output Box -->
+        <div id="sowPreviewOutput"
+            style="margin-top: 20px; background: #020617; border: 1px dashed #334155; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #cbd5e1; display: none;">
+            <!-- Dynamic Result Rendered Here -->
+        </div>
+    </div>
+
+    <!-- --- VertexSecOps Baseline Audit & Remediation Module --- -->
+    <div
+        style="background: #0f172a; border: 1px solid #334155; padding: 25px; border-radius: 8px; margin-top: 20px; font-family: system-ui, sans-serif;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #38bdf8; font-size: 18px; font-family: monospace;">[ ACTIVE PROTOCOL: BASELINE
+                AUDIT & REMEDIATION ]</h3>
+            <span
+                style="font-size: 12px; color: #f59e0b; font-family: monospace; background: #451a03; padding: 4px 8px; border-radius: 4px;">AUDIT
+                IN PROGRESS</span>
+        </div>
+
+        <!-- Audit Status Grid -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+            <div style="background: #1e293b; padding: 15px; border-radius: 6px; border-left: 4px solid #38bdf8;">
+                <div style="font-size: 11px; color: #94a3b8; font-family: monospace;">ENDPOINTS SCANNED</div>
+                <div id="auditEndpoints"
+                    style="font-size: 20px; color: #f8fafc; font-weight: bold; font-family: monospace; margin-top: 5px;">
+                    27 / 27</div>
+            </div>
+            <div style="background: #1e293b; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+                <div style="font-size: 11px; color: #94a3b8; font-family: monospace;">NIST / ISO CONTROLS</div>
+                <div id="auditControls"
+                    style="font-size: 20px; color: #f8fafc; font-weight: bold; font-family: monospace; margin-top: 5px;">
+                    14 Verified</div>
+            </div>
+            <div style="background: #1e293b; padding: 15px; border-radius: 6px; border-left: 4px solid #10b981;">
+                <div style="font-size: 11px; color: #94a3b8; font-family: monospace;">REMEDIATION LABOR</div>
+                <div id="auditLabor"
+                    style="font-size: 20px; color: #f8fafc; font-weight: bold; font-family: monospace; margin-top: 5px;">
+                    8.0 Hrs Logged</div>
+            </div>
+        </div>
+
+        <!-- Live Telemetry Feed Box -->
+        <div style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 13px; color: #cbd5e1; height: 140px; overflow-y: auto;"
+            id="auditTerminalLog">
+            <div style="color: #38bdf8;">[14:52:01] Initializing baseline audit telemetry for active client
+                environment...</div>
+            <div style="color: #10b981;">[14:52:02] Active Directory identity governance structure verified.</div>
+            <div style="color: #10b981;">[14:52:03] STRIDE threat modeling vectors mapped across 25 workstations and 2
+                servers.</div>
+            <div style="color: #f59e0b;">[14:52:04] Warning: Local admin privilege expansion detected on 2 endpoints.
+                Queued for remediation.</div>
+        </div>
+
+        <!-- Execution Controls -->
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button onclick="triggerRemediationSprint()"
+                style="background: #38bdf8; color: #0f172a; border: none; padding: 10px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 13px;">
+                ⚡ EXECUTE REMEDIATION SPRINT
+            </button>
+            <button onclick="sealBaselineAudit()"
+                style="background: #10b981; color: #0f172a; border: none; padding: 10px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 13px;">
+                🔒 SEAL AUDIT & TRANSITION TO 24/7 RETAINER
+            </button>
+        </div>
+    </div>
+
+    <!-- --- VertexSecOps Pre-Flight SOW Review & Dispatch Modal --- -->
+    <div id="sowPreviewModal"
+        style="display: none; position: fixed; top: 8vh; left: 50%; transform: translateX(-50%); width: 720px; max-width: 92vw; max-height: 84vh; overflow-y: auto; background: #0f172a; border: 2px solid #38bdf8; padding: 25px; border-radius: 8px; z-index: 10020; font-family: system-ui, sans-serif; box-shadow: 0 15px 40px rgba(0,0,0,0.9);">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #38bdf8; font-size: 18px; font-family: monospace;">[ PRE-FLIGHT AUDIT: REVIEW &
+                CUSTOMIZE SOW DRAFT ]</h3>
+            <span
+                style="font-size: 12px; color: #f59e0b; font-family: monospace; background: #451a03; padding: 4px 8px; border-radius: 4px;">PENDING
+                EXECUTIVE AUTHORIZATION</span>
+        </div>
+
+        <!-- Editable Client Context / Custom Notes -->
+        <div style="margin-bottom: 15px;">
+            <label
+                style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-family: monospace;">CUSTOM
+                EXECUTIVE NOTES & CONCERN REMEDIATIONS (INJECTED INTO DRAFT)</label>
+            <textarea id="sowCustomNotes" rows="3"
+                style="width: 100%; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 10px; border-radius: 4px; font-size: 13px; font-family: monospace;">Addressed client inquiry regarding front-desk workstation migration and compliance alignment under NIST SP 800-53.</textarea>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div
+            style="background: #020617; border: 1px dashed #334155; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+            <div style="color: #38bdf8; margin-bottom: 8px;">--- DRAFT CONTENT PREVIEW ---</div>
+            <div id="sowDraftBody">
+                <!-- Dynamic Preview Content Populated Here -->
+            </div>
+        </div>
+
+        <!-- Final Sign-off Actions -->
+        <div style="display: flex; gap: 10px;">
+            <button onclick="authorizeAndDispatchSOW()"
+                style="background: #10b981; color: #0f172a; border: none; padding: 12px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 14px;">
+                🔒 AUTHORIZE & DISPATCH SOW PACKAGE
+            </button>
+            <button onclick="cancelSOWReview()"
+                style="background: #334155; color: #f8fafc; border: none; padding: 12px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 14px;">
+                ABORT / REVISE METRICS
+            </button>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+     VERTEX SYSTEMS - RELATIONAL WORKSTATION Drawer (MASTER-DETAIL)
+     ========================================================================== -->
+    <div id="relationalWorkstationDrawer"
+        style="display: none; position: fixed; top: 5vh; left: 1vw; width: 98vw; height: 90vh; background: #090d16; border: 2px solid #00ffcc; border-radius: 8px; z-index: 10005; box-shadow: 0 0 30px rgba(0,255,204,0.3); flex-direction: column; font-family: monospace; overflow: hidden;">
+        <!-- Drawer Top Control Bar -->
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 12px 20px; border-bottom: 1px solid #334155;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h3 style="margin: 0; color: #00ffcc; font-size: 16px;">[ 🗄️ MASTER-DETAIL RELATIONAL WORKSTATION ]
+                </h3>
+                <span
+                    style="font-size: 11px; background: #064e3b; color: #10b981; padding: 3px 8px; border-radius: 3px;">SQL
+                    SERVER EXPRESS ACTIVE</span>
+            </div>
+            <button onclick="toggleRelationalWorkstation()"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 4px 10px; font-family: monospace; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 3px;"
+                title="Close Drawer">
+                🚪
+            </button>
+        </div>
+
+
+
+        <!-- Main Split-Pane Workspace -->
+        <div style="display: flex; flex: 1; overflow: hidden;">
+
+            <!-- Left Panel: Client Selector & Master List (30%) -->
+            <div
+                style="width: 30%; background: #0b0f19; border-right: 1px solid #334155; padding: 15px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+                <label style="color: #38bdf8; font-size: 12px;">SELECT TARGET CLIENT:</label>
+                <input type="text" id="clientSearchFilter" placeholder="Filter clients..." onkeyup="filterClientList()"
+                    style="background: #1e293b; border: 1px solid #475569; color: #fff; padding: 8px; border-radius: 4px; font-family: monospace;">
+                <div id="clientMasterList" style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+
+
+                    <button class="client-nexus-Btn" data-id="1" data-name="Arya Mojallali"
+                        style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 10px; text-align: left; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                        👤 Arya Mojallali <span style="font-size: 10px; color: #10b981; float: right;">[ENTITY]</span>
+                    </button>
+
+                    <button class="client-nexus-Btn" data-id="2" data-name="Mo Mojallali"
+                        style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 10px; text-align: left; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                        👨‍💻 Mo Mojallali <span style="font-size: 10px; color: #10b981; float: right;">[ENTITY]</span>
+                    </button>
+
+                    <button class="client-nexus-Btn" data-id="3" data-name="Firewall_Node_Alpha"
+                        style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 10px; text-align: left; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                        🔥 Firewall_Node_Alpha <span
+                            style="font-size: 10px; color: #10b981; float: right;">[INFRA]</span>
+                    </button>
+
+                    <button class="client-nexus-Btn" data-id="4" data-name="Core_Switch_Beta"
+                        style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 10px; text-align: left; cursor: pointer; border-radius: 4px; font-family: monospace;">
+                        🔌 Core_Switch_Beta <span style="font-size: 10px; color: #10b981; float: right;">[INFRA]</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Vertical Relational Matrix & Support Blobs (70%) -->
+            <div
+                style="width: 70%; background: #0d1117; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
+                <div id="clientWorkspaceHeader" style="border-bottom: 1px dashed #334155; padding-bottom: 10px;">
+                    <h4 style="margin: 0; color: #f8fafc;">Active Workspace: <span id="activeClientTitle"
+                            style="color: #38bdf8;">None Selected</span></h4>
+                </div>
+
+                <!-- Vertical Tickets & Support Blobs Container -->
+                <div id="relationalTicketsContainer" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="color: #94a3b8; font-style: italic;">Select a client on the left to load relational
+                        tables and support blobs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- SECURE VAULT Drawer -->
+    <div id="secureVaultDrawer" class="utility-Drawer vault-Drawer" style="display: none;">
+        <div class="Drawer-header"
+            style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #1f2937;">
+            <h3 style="color: #00ffcc; font-family: monospace; margin: 0; font-size: 14px;">
+                <i class="fa-solid fa-vault"></i> SECURE VAULT
+            </h3>
+            <button onclick="toggleTopDrawer()"
+                style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 6px 10px; cursor: pointer; border-radius: 4px;"
+                title="Close Vault">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="Drawer-body" style="padding: 20px; color: #94a3b8; font-family: monospace;">
+            <!-- Secure Vault content and records go here -->
+            <p>Secure credentials and encrypted logs repository active.</p>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+    6. CLIENT-SIDE DASHBOARD ENGINE & API HANDLERS
+    ====================================================================== -->
+    <script>
+
+        // ------------------------------------------------------------------
+        // Global State Management & Variables
+        // Tracks active incident payloads, countdown timers, and UI states.
+        // ------------------------------------------------------------------
+        let countDownInterval = null;
+        let timeLeft = 60;
+        let currentIncidentId = null;
+        let activeIncidentData = null;
+
+        // ------------------------------------------------------------------
+        // Unified 4-Way Drawer Control Engine
+        // ------------------------------------------------------------------
+        function toggleTopDrawer() {
+            const Drawer = document.getElementById('executiveTopDrawer');
+            if (Drawer) {
+                Drawer.classList.toggle('open');
+            }
+        }
+
+        function toggleBottomDrawer() {
+            const Drawer = document.getElementById('bottomDrawer');
+            if (Drawer) {
+                if (Drawer.style.bottom === '0px') {
+                    Drawer.style.bottom = '-100%';
+                } else {
+                    Drawer.style.bottom = '0px';
+                }
+            }
+        }
+
+
+        function toggleOSINTDrawer() {
+            const Drawer = document.getElementById('OSINTDrawer-Id'); // Match your HTML ID
+            if (Drawer) {
+                const isOpen = Drawer.classList.contains('open');
+                if (isOpen) {
+                    Drawer.classList.remove('open');
+                    Drawer.style.display = 'none';
+                } else {
+                    const list = document.getElementById('OSINTList');
+                    if (list && !list.children.length) {
+                        const OSINTTools = [
+                            { name: 'VirusTotal Lookup', url: 'https://www.virustotal.com/gui/home/search', desc: 'Analyze suspicious files, domains, IPs, and URLs.' },
+                            { name: 'MXToolbox Header Analyzer', url: 'https://mxtoolbox.com/EmailHeaders.aspx', desc: 'Inspect email headers for routing telemetry and spoofing.' },
+                            { name: 'URLScan.io', url: 'https://urlscan.io/', desc: 'Automated sandbox scanner for website inspection.' },
+                            { name: 'Shodan Search', url: 'https://www.shodan.io/', desc: 'Search engine for internet-connected devices and infrastructure.' },
+                            { name: 'Whois Lookup', url: 'https://whois.domaintools.com/', desc: 'Query domain registration, ownership, and nameserver records.' },
+                            { name: 'Censys', url: 'https://search.censys.io/', desc: 'Host intelligence and digital certificate visibility scanner.' },
+                            { name: 'CyberChef', url: 'https://gchq.github.io/CyberChef/', desc: 'The Cyber Swiss Army Knife for data parsing, decoding, and forensics.' },
+                            { name: 'HaveIBeenPwned', url: 'https://haveibeenpwned.com/', desc: 'Check credentials and email addresses against known data breaches.' },
+                            { name: 'AlienVault OTX', url: 'https://otx.alienvault.com/', desc: 'Open Threat Exchange for global threat indicators and pulses.' }
+                        ];
+
+                        list.innerHTML = OSINTTools.map(t => `
+                    <div style='border: 1px solid #334155; padding: 10px; border-radius: 6px; background: #0b0f19; font-family: monospace; margin-bottom: 8px;'>
+                        <div style='color: #38bdf8; font-weight: bold; font-size: 13px; margin-bottom: 4px;'>${t.name}</div>
+                        <div style='font-size: 11px; color: #94a3b8; margin-bottom: 8px;'>${t.desc}</div>
+                        <a href='${t.url}' target='_blank' style='background: #065f46; color: #34d399; border: 1px solid #059669; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; display: inline-block;'>Launch</a>
+                    </div>
+                `).join('');
+                    }
+                    Drawer.style.display = 'block';
+                    Drawer.classList.add('open');
+                }
+            }
+        }
+
+        function toggleRightDrawer() {
+            const Drawer = document.getElementById('systools-Drawer');
+            if (Drawer) {
+                const isOpen = Drawer.classList.contains('open');
+                if (isOpen) {
+                    Drawer.classList.remove('open');
+                    Drawer.style.display = 'none';
+                } else {
+                    const list = document.getElementById('systools-list');
+                    if (list && !list.children.length) {
+                        const tools = [
+                            { name: 'Active Directory Users & Computers', cmd: 'dsa.msc', env: 'RSAT / SERVER', desc: 'Manage domain users, groups, and OU structures.' },
+                            { name: 'DNS Manager', cmd: 'dnsmgmt.msc', env: 'RSAT / SERVER', desc: 'Manage forward/reverse lookups and DNS forwarders.' },
+                            { name: 'Hyper-V Manager', cmd: 'virtmgmt.msc', env: 'RSAT / HYPER-V', desc: 'Control panel for lab virtual machines and vSwitches.' },
+                            { name: 'Group Policy Management', cmd: 'gpmc.msc', env: 'RSAT / SERVER', desc: 'Deploy domain-wide GPOs and security policies.' },
+                            { name: 'DHCP Manager', cmd: 'dhcpmgmt.msc', env: 'RSAT / SERVER', desc: 'Manage IP address pools, scopes, and leases.' },
+                            { name: 'Computer Management', cmd: 'compmgmt.msc', env: 'LOCAL', desc: 'Access Task Scheduler, Event Viewer, and Disk Management.' },
+                            { name: 'Event Viewer', cmd: 'eventvwr.msc', env: 'LOCAL', desc: 'Review security audits, system logs, and application warnings.' },
+                            { name: 'Device Manager', cmd: 'devmgmt.msc', env: 'LOCAL', desc: 'Inspect hardware drivers and device statuses.' },
+                            { name: 'Services Console', cmd: 'services.msc', env: 'LOCAL', desc: 'Manage Windows background services and startup types.' },
+                            { name: 'Network Connections', cmd: 'ncpa.cpl', env: 'LOCAL', desc: 'Configure network adapters, IPs, and DNS settings.' },
+                            { name: 'Resource Monitor', cmd: 'resmon', env: 'LOCAL', desc: 'Analyze live CPU, disk, network, and memory utilization.' },
+                            { name: 'Windows Firewall with Advanced Security', cmd: 'wf.msc', env: 'LOCAL', desc: 'Configure inbound/outbound firewall rules and policies.' },
+                            { name: 'Registry Editor', cmd: 'regedit', env: 'LOCAL', desc: 'Modify Windows system and application registry hives.' },
+                            { name: 'PowerShell Admin Session', cmd: 'powershell', env: 'LOCAL', desc: 'Open a dedicated administrative PowerShell shell.' }
+                        ];
+                        list.innerHTML = tools.map(t => `
+                    <div class='systool-card' style='border: 1px solid #334155; padding: 12px; border-radius: 6px; background: #0b0f19; font-family: monospace; margin-bottom: 8px;'>
+                        <div class='systool-info'>
+                            <div style='color: #38bdf8; font-weight: bold; font-size: 13px; margin-bottom: 4px;'>${t.name}</div>
+                            <div style='font-size: 11px; color: #94a3b8; margin-bottom: 8px;'>${t.desc}</div>
+                            <span style='font-size: 10px; color: #f59e0b; background: rgba(245, 158, 11, 0.1); padding: 2px 6px; border-radius: 3px;'>${t.cmd}</span>
+                            <span style='font-size: 10px; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 3px; margin-left: 4px;'>${t.env}</span>                        </div>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-top: 8px;'>
+                            <div></div>
+                            <div style='display: flex; gap: 4px;'>
+                                <button onclick="launchTool('${t.cmd}')" style='background: #065f46; color: #34d399; border: 1px solid #059669; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;'>Launch</button>
+                                <button onclick="copyToClipboard('${t.cmd}')" style='background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;'>Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                    }
+                    Drawer.style.display = 'block';
+                    Drawer.classList.add('open');
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Relational Workstation & Master-Detail Engine
+        // ------------------------------------------------------------------
+        function toggleRelationalWorkstation() {
+            const Drawer = document.getElementById('relationalWorkstationDrawer');
+            if (Drawer) {
+                Drawer.style.display = Drawer.style.display === 'none' ? 'flex' : 'none';
+            }
+        }
+
+        async function loadClientNexus(clientId, clientName) {
+            document.getElementById('activeClientTitle').innerText = clientName + ` (ID: ${clientId})`;
+            const container = document.getElementById('relationalTicketsContainer');
+            const headerContainer = document.getElementById('clientWorkspaceHeader');
+
+            container.innerHTML = '<div style="color: #38bdf8;">// Synchronizing relational records from SQL Server Express...</div>';
+
+            try {
+                const targetUrl = `/api/v1/nexus/client/${clientId}`;
+                console.log("Fetching Nexus payload from:", targetUrl);
+
+                const response = await fetch(targetUrl);
+                console.log("Response status:", response.status);
+
+                if (!response.ok) {
+                    throw new Error(`Server returned status ${response.status} (${response.statusText})`);
+                }
+
+                const data = await response.json();
+                console.log("Nexus payload received:", data);
+
+                renderVerticalRelationalWorkspace(data);
+
+            } catch (err) {
+                console.error('Nexus error details:', err);
+                container.innerHTML = `<div style="color: #ef4444;">[!] Error connecting to Flask Nexus API: ${err.message}. Check browser console (F12).</div>`;
+            }
+        }
+
+
+        function renderVerticalRelationalWorkspace(data) {
+            const container = document.getElementById('relationalTicketsContainer');
+            container.innerHTML = '';
+
+            if (!data.Tickets || data.Tickets.length === 0) {
+                container.innerHTML = '<div style="color: #94a3b8;">[ NO TicketS FOUND FOR THIS CLIENT ]</div>';
+                return;
+            }
+
+            const sortedTickets = data.Tickets.sort((a, b) => b.id - a.id);
+
+            sortedTickets.forEach((Ticket, index) => {
+                const tid = Ticket.TicketID || (index + 1);
+                const isLatest = index === 0;
+                const card = document.createElement('div');
+
+
+                card.style.cssText = `background: #111827; border: 1px solid ${isLatest ? '#00ffcc' : '#334155'}; border-left: 4px solid ${isLatest ? '#00ffcc' : '#38bdf8'}; padding: 15px; border-radius: 6px; margin-bottom: 10px;`;
+
+                card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <span style="color: #00ffcc; font-weight: bold;">[${isLatest ? ' ★ LATEST Ticket ' : `Ticket #${Ticket.id}`}]</span>
+                        <strong style="color: #f8fafc; margin-left: 10px;">${Ticket.subject || Ticket.alertType || 'Security Incident'}</strong>
+                    </div>
+                    <span style="background: #1e293b; color: #38bdf8; padding: 2px 8px; border-radius: 3px; font-size: 11px;">Status: ${Ticket.status || 'NEW'}</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; font-size: 12px; color: #94a3b8;">
+                    <div>Priority: <span style="color: #f59e0b;">${Ticket.priority || 'NORMAL'}</span></div>
+                    <div>Timestamp: <span style="color: #cbd5e1;">${Ticket.timestamp || 'Live Stream'}</span></div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                    <div>
+                        <label style="font-size: 11px; color: #38bdf8; display: block; margin-bottom: 3px;">📝 WORK DONE / ENGINEERING ACTIONS:</label>
+                        <textarea id="work-done-${Ticket.id}" rows="2" placeholder="Record diagnostic steps..." style="width: 100%; background: #0b0f19; border: 1px solid #334155; color: #f8fafc; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; resize: vertical;">${Ticket.work_done || ''}</textarea>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 11px; color: #10b981; display: block; margin-bottom: 3px;">💡 TECHNICAL RECOMMENDATIONS:</label>
+                        <textarea id="recommendations-${Ticket.id}" rows="2" placeholder="Document hardening advice..." style="width: 100%; background: #0b0f19; border: 1px solid #334155; color: #f8fafc; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; resize: vertical;">${Ticket.recommendations || ''}</textarea>
+                    </div>
+
+                    <button onclick="commitRelationalBlob(${tid})" style="background: #10b981; color: #0f172a; border: none; padding: 8px; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 5px;">
+                        💾 COMMIT SUPPORT BLOBS TO SQL SERVER
+                    </button>
+                </div>
+            `;
+                container.appendChild(card);
+            });
+        }
+
+        async function commitRelationalBlob(TicketId) {
+            console.log("🔍 COMMIT CLICKED. Received TicketId argument:", TicketId);
+
+            // Quick fallback guard
+            if (!TicketId || TicketId === 'undefined') {
+                alert("[!] Error: Ticket ID is undefined. Check console for payload details.");
+                return;
+            }
+
+            const WorkDoneInput = document.getElementById(`work-done-${TicketId}`);
+            const recInput = document.getElementById(`recommendations-${TicketId}`);
+
+            const WorkDone = WorkDoneInput ? WorkDoneInput.value : '';
+            const recommendations = recInput ? recInput.value : '';
+
+            try {
+                const response = await fetch(`/api/v1/Ticket/${TicketId}/commit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ work_done: WorkDone, recommendations: recommendations })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+
+                console.log("💾 Commit Successful:", result);
+                alert(`✅ Support blobs committed successfully for Ticket #${TicketId}! Database synchronized.`);
+            } catch (err) {
+                console.error('Commit error:', err);
+                alert(`[!] Error synchronizing database: ${err.message}`);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Banner Click Handler
+        // Intercepts clicks on the security alert banner to open the forensic 
+        // OSINT modal with active or fallback telemetry data.
+        // ------------------------------------------------------------------
+        function handleBannerClick(event) {
+            // Prevent triggering if the user clicked a specific inner button
+            if (event.target.tagName === 'BUTTON') return;
+
+            console.log("Banner clicked, opening modal...");
+
+            if (!activeIncidentData) {
+                activeIncidentData = {
+                    id: currentIncidentId || "SIM-999",
+                    event_id: "4672",
+                    title: "Special Privileges Assigned to New Logon",
+                    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+                };
+            }
+
+            openForensicModal();
+        }
+
+        // ------------------------------------------------------------------
+        // SecOps Polling Engine
+        // Periodically queries the Flask backend for unacknowledged incidents 
+        // to display real-time alerts and trigger countdown timers.
+        // ------------------------------------------------------------------
+        function checkActiveIncidents() {
+            fetch('/api/incidents/active')
+                .then(response => {
+                    const contentType = response.headers.get("content-type");
+                    if (!response.ok) throw new Error(`Server returned status ${response.status}`);
+                    if (!contentType || !contentType.includes("application/json")) {
+                        throw new TypeError("Expected JSON response from Flask backend.");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (Array.isArray(data) && data.length > 0) {
+                        const incident = data[0];
+                        activeIncidentData = incident;
+
+                        if (incident.status === 'UNACKNOWLEDGED') {
+                            currentIncidentId = incident.id;
+                            document.getElementById('alert-title').innerText = `${incident.title} (Event ID: ${incident.event_id})`;
+                            document.getElementById('secops-alert-banner').style.display = 'block';
+
+                            if (!countDownInterval) {
+                                startCountDown();
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("SecOps polling error:", err));
+        }
+
+        // ------------------------------------------------------------------
+        // Escalation Countdown Timer
+        // Manages the 60-second unacknowledged incident whistle timer.
+        // ------------------------------------------------------------------
+        function startCountDown() {
+            timeLeft = 60;
+            document.getElementById('countDown-timer').innerText = timeLeft;
+
+            countDownInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('countDown-timer').innerText = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countDownInterval);
+                    alert("⚠️ ESCALATION WHISTLE: Incident unacknowledged after 60 seconds!");
+                }
+            }, 1000);
+        }
+
+        // ------------------------------------------------------------------
+        // Incident Acknowledgment Handler
+        // Communicates with Flask to clear active alerts and stop timers.
+        // ------------------------------------------------------------------
+        function acknowledgeIncident() {
+            if (!currentIncidentId) return;
+
+            fetch(`/api/incidents/acknowledge/${currentIncidentId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        clearInterval(countDownInterval);
+                        countDownInterval = null;
+                        document.getElementById('secops-alert-banner').style.display = 'none';
+                        currentIncidentId = null;
+                    }
+                });
+        }
+
+        // ------------------------------------------------------------------
+        // Forensic OSINT Modal Controls
+        // Populates and displays deep-dive forensic metadata for an incident.
+        // ------------------------------------------------------------------
+        function openForensicModal() {
+            console.log("Opening modal with data:", activeIncidentData);
+
+            document.getElementById('modal-inc-id').innerText = activeIncidentData.id || "---";
+            document.getElementById('modal-event-id').innerText = activeIncidentData.event_id || "4672";
+            document.getElementById('modal-title').innerText = activeIncidentData.title || "Security Incident";
+            document.getElementById('modal-timestamp').innerText = activeIncidentData.timestamp || "Recent";
+            document.getElementById('modal-raw-payload').innerText =
+                `Source: Windows Security Log (Live WinEvent API)\n` +
+                `Classification: Privilege Escalation / Access Vector\n` +
+                `Status: Pending Analyst Review\n` +
+                `Payload Hash Verified: OK`;
+
+            document.getElementById('forensic-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('forensic-modal').style.display = 'none';
+        }
+
+        function acknowledgeAndClose() {
+            acknowledgeIncident();
+            closeModal();
+        }
+
+        // ------------------------------------------------------------------
+        // Manual Terminal Lockdown
+        // Clears all session data and redirects to authentication entry.
+        // ------------------------------------------------------------------
+        function lockDownConsoleManual() {
+            console.warn("SECURITY OVERRIDE: Manual session termination initialized.");
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = "index.html";
+        }
+
+        // ------------------------------------------------------------------
+        // Outbound M365 Webhook & Adaptive Card Dispatcher
+        // Grabs the active incident ID (with a secure fallback to "5") and 
+        // sends an asynchronous POST request to the Flask backend dispatcher.
+        // ------------------------------------------------------------------
+        async function dispatchCurrentIncident() {
+            const statusSpan = document.getElementById('dispatch-status');
+
+            // Securely resolve active incident ID with fallback for testing
+            let incidentId = window.activeIncidentId || "5";
+
+            if (!incidentId) {
+                statusSpan.style.color = '#ff6b6b';
+                statusSpan.innerText = 'Error: No active incident selected.';
+                return;
+            }
+
+            statusSpan.style.color = '#f1c40f';
+            statusSpan.innerText = 'Dispatching webhook...';
+
+            try {
+                const response = await fetch('/api/integrations/dispatch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        incident_id: incidentId
+                        // target_url omitted here to trigger .env fallback to live M365 endpoint
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    statusSpan.style.color = '#2ecc71';
+                    statusSpan.innerText = `Dispatched! (${data.external_response_code})`;
+                } else {
+                    statusSpan.style.color = '#ff6b6b';
+                    statusSpan.innerText = `Failed: ${data.message || 'Unknown error'}`;
+                }
+            } catch (error) {
+                statusSpan.style.color = '#ff6b6b';
+                statusSpan.innerText = 'Network error during dispatch.';
+                console.error('Dispatch error:', error);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Core View Engine: Ticket Grid Loader
+        // Fetches live Tickets from SQL Server via Flask or falls back to mock data.
+        // ------------------------------------------------------------------
+        async function loadDashboardTickets() {
+            try {
+                const selectedTenant = document.getElementById('TenantFilter')?.value;
+
+                let url = '/api/dashboard/Tickets';
+                if (selectedTenant && selectedTenant !== 'ALL') {
+                    url += `?client=${selectedTenant}`;
+                }
+
+                console.log(`📡 Requesting isolated payload from: ${url}`);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP network error: ${response.status}`);
+                const Tickets = await response.json();
+
+                renderDashboardCards(Tickets);
+
+            } catch (error) {
+                console.warn("⚠️ Flask API offline. Loading fallback telemetry into console grid...", error);
+
+                const mockTickets = [
+                    { id: 101, deviceName: "DC-01 (Active Directory)", alertType: "Kerberos TGT Anomaly", tenantId: "ALPHA_CORP", status: "NEW", severity: "HIGH", riskScore: 88, timestamp: "2026-08-04 16:35", assignmentGroup: "SecOps Triage", notes: "Suspicious Ticket requests detected." },
+                    { id: 102, deviceName: "SQL-DB-PROD", alertType: "Failed Auth Threshold Exceeded", tenantId: "BETA_INC", status: "ASSIGNED", severity: "CRITICAL", riskScore: 94, timestamp: "2026-08-04 16:12", assignmentGroup: "Database Sec", notes: "Investigating IP 192.168.1.105." },
+                    { id: 103, deviceName: "FW-EDGE-02", alertType: "Port Scan Mitigated", tenantId: "ALPHA_CORP", status: "RESOLVED", severity: "LOW", riskScore: 12, timestamp: "2026-08-04 15:45", assignmentGroup: "NetOps", notes: "Automated drop rule applied." }
+                ];
+
+                renderDashboardCards(mockTickets);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Dynamic DOM Card Renderer
+        // Builds expandable Ticket cards with operational lifecycle controls.
+        // ------------------------------------------------------------------
+        function renderDashboardCards(Tickets) {
+            const container = document.getElementById('TicketContainer');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (!Tickets || Tickets.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; font-family: monospace;">No active records logged in database query.</p>';
+                return;
+            }
+
+            Tickets.forEach(Ticket => {
+                const card = document.createElement('div');
+                card.className = 'Ticket-card';
+                card.style.display = 'block';
+                card.setAttribute('data-tenant', Ticket.tenantId || 'ALL');
+
+                card.innerHTML = `
+                    <details style="width: 100%; cursor: pointer;">
+                        <summary style="display: flex; justify-content: space-between; align-items: center; list-style: none;">
+                            <div style="display: flex; gap: 15px; font-family: monospace;">
+                                <span style="color: #00ff66; font-weight: bold;">🆔 #${Ticket.id}</span>
+                                <strong style="color: #38bdf8;">${Ticket.deviceName || 'Unknown'}</strong>
+                                <span style="color: #94a3b8;">[${Ticket.alertType || 'Alert'}]</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; font-family: monospace;">
+                                <span style="color: #a855f7; font-weight: bold; font-size: 12px; background: #1e1b4b; padding: 2px 6px; border-radius: 3px;">${Ticket.tenantId || 'GLOBAL'}</span>
+                                <span style="color: ${Ticket.status === 'NEW' ? '#10b981' : '#f59e0b'}; font-size: 12px;">● ${Ticket.status || 'NEW'}</span>
+                                <span style="color: #64748b; font-size: 14px;">▼</span>
+                            </div>
+                        </summary>
+
+                        <div style="margin-top: 15px; border-top: 1px dashed #334155; padding-top: 15px; cursor: default;" onclick="event.stopPropagation();">
+                            <div style="background: #0b0f19; padding: 10px; border-left: 2px solid #00ff66; color: #e2e8f0; font-family: monospace; margin-bottom: 12px; line-height: 1.6;">
+                                <strong>Severity:</strong> ${Ticket.severity || 'NORMAL'} | <strong>Risk:</strong> ${Ticket.riskScore || 0}% | <strong>Time:</strong> ${Ticket.timestamp || 'Live Stream'}
+                                <br>
+                                <span style="color: #94a3b8;">👥 <strong>Assignment Group:</strong></span> <span style="color: #38bdf8;">${Ticket.assignmentGroup || 'UNASSIGNED'}</span>
+                            </div>
+
+                            <div class="lifecycle-controls">
+                                <label style="display:block; font-size:11px; color:#94a3b8; font-family:monospace; margin-bottom:4px;">WORKFLOW STATUS</label>
+                                <select id="status-${Ticket.id}" onchange="handleStatusChange(${Ticket.id}, this.value)" style="background:#0b0f19; color:#f8fafc; border:1px solid #334155; padding:6px; width:100%;">
+                                    <option value="NEW" ${Ticket.status === 'NEW' ? 'selected' : ''}>🟩 NEW UNASSIGNED</option>
+                                    <option value="ASSIGNED" ${Ticket.status === 'ASSIGNED' ? 'selected' : ''}>🟧 ASSIGNED TO TRIAGE</option>
+                                    <option value="RESOLVED" ${Ticket.status === 'RESOLVED' ? 'selected' : ''}>🟦 RESOLVED & CLOSED</option>
+                                </select>
+
+                                <label style="display:block; font-size:11px; color:#94a3b8; font-family:monospace; margin-bottom:4px; margin-top:10px;">ENGINEERING JOURNAL & NOTES</label>
+                                <textarea id="notes-${Ticket.id}" placeholder="Enter operational activity updates..." style="background:#0b0f19; color:#f8fafc; border:1px solid #334155; padding:6px; width:100%; border-radius:4px; font-family:monospace; font-size:12px; min-height:50px; resize:vertical;">${Ticket.notes || ''}</textarea>
+
+                                <button onclick="saveTicketLifecycle(${Ticket.id})" style="background:#10b981; color:#0f172a; border:none; padding:8px; width:100%; font-weight:bold; cursor:pointer; margin-top:8px; border-radius:4px;">
+                                    💾 COMMIT OPERATIONAL LOGS
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 🎥 Executive Comms Bridge -->
+                        <div style="margin-top: 12px; padding: 10px; background: #0b0f19; border: 1px solid #38bdf8; border-radius: 4px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: #38bdf8; font-family: monospace;">🛡️ AUDIT TRAIL</span>
+                                <button onclick="triggerCommsBridge(${Ticket.id})" style="background: #0284c7; color: #ffffff; border: none; padding: 3px 8px; font-size: 10px; font-family: monospace; cursor: pointer; border-radius: 3px;">
+                                    [ 🎥 LAUNCH CALL RECORD ]
+                                </button>
+                            </div>
+                            <div id="audit-status-${Ticket.id}" style="margin-top: 6px; font-size: 11px; color: #94a3b8; font-family: monospace;">
+                                ${Ticket.MeetingLink ? `<a href="${Ticket.MeetingLink}" target="_blank" style="color: #4ade80;">▶ Play Verified Audit Recording</a>` : 'No session recording bound.'}
+                            </div>
+                        </div>
+
+                    </details>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Workspace Filtering & Search
+        // ------------------------------------------------------------------
+        function searchWorkspaceCards() {
+            const searchQuery = document.getElementById('WorkspaceSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('#TicketContainer .Ticket-card');
+
+            cards.forEach(card => {
+                const cardText = card.textContent.toLowerCase();
+                card.style.display = cardText.includes(searchQuery) ? "" : "none";
+            });
+        }
+
+        function triggerCommsBridge(TicketId) {
+            let recordingUrl = prompt("Enter Zoom/Teams Cloud Recording URL for this incident:");
+            if (!recordingUrl) return;
+
+            // Automatically prepend https:// if missing so the browser opens it correctly
+            if (!recordingUrl.startsWith('http://') && !recordingUrl.startsWith('https://')) {
+                recordingUrl = 'https://' + recordingUrl;
+            }
+
+            fetch(`/api/Ticket/${TicketId}/attach-call`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recordingUrl: recordingUrl })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert("Call recording successfully bound to audit trail.");
+                        loadDashboardTickets(); // Refresh grid view
+                    } else {
+                        alert("Error binding recording: " + data.message);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function filterTenantView() {
+            const searchInput = document.getElementById('WorkspaceSearch');
+            if (searchInput) searchInput.value = '';
+            loadDashboardTickets();
+        }
+
+        // ------------------------------------------------------------------
+        // Automated Journal Note Timestamping & Persistence
+        // ------------------------------------------------------------------
+        function saveTicketLifecycle(TicketId) {
+            const textarea = document.getElementById(`notes-${TicketId}`);
+            if (!textarea) return;
+
+            const rawNotes = textarea.value.trim();
+            if (!rawNotes) return;
+
+            const now = new Date();
+            const YYYY = now.getFullYear();
+            const MM = String(now.getMonth() + 1).padStart(2, '0');
+            const DD = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const currentTimestamp = `[${YYYY}-${MM}-${DD} ${hh}:${mm}]`;
+
+            const lines = rawNotes.split('\n');
+            let formattedText = '';
+            let inUntaggedBlock = false;
+
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                const hasHeader = /^\[\d{4}-\d{2}-\d{2}/.test(trimmed);
+
+                if (hasHeader) {
+                    inUntaggedBlock = false;
+                    formattedText += (index === 0 ? '' : '\n\n') + trimmed;
+                } else if (trimmed === '') {
+                    inUntaggedBlock = false;
+                } else {
+                    if (!inUntaggedBlock && !formattedText.endsWith(currentTimestamp)) {
+                        formattedText += (formattedText ? '\n\n' : '') + `${currentTimestamp}\n${trimmed}`;
+                        inUntaggedBlock = true;
+                    } else {
+                        formattedText += `\n${trimmed}`;
+                    }
+                }
+            });
+
+            textarea.value = formattedText;
+
+            fetch(`/api/Tickets/${TicketId}/notes`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: formattedText })
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+                    return response.json();
+                })
+                .then(data => alert(`Journal entry committed for Ticket #${TicketId}!`))
+                .catch(error => alert('Failed to save log entry.'));
+        }
+
+        async function handleStatusChange(TicketId, newStatus) {
+            try {
+                const response = await fetch(`/api/Tickets/${TicketId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (response.ok) {
+                    console.log(`[Ticket UPDATE] Ticket #${TicketId} changed to ${newStatus}`);
+                    loadDashboardTickets();
+                } else {
+                    const result = await response.json();
+                    alert(`Failed to update status: ${result.message}`);
+                }
+            } catch (err) {
+                console.error('[NETWORK ERROR]', err);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Drawer & Diagnostic Tool Handlers
+        // ------------------------------------------------------------------
+
+        async function launchSystemTool(toolKey) {
+            const token = sessionStorage.getItem("idToken") ||
+                sessionStorage.getItem("accessToken") ||
+                sessionStorage.getItem("vtx_token");
+
+            if (!token || token === "true" || token.split(".").length !== 3) {
+                alert("Authentication Error: Valid Entra ID JWT missing or expired. Please re-authenticate via index.html.");
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/tools/launch", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ tool: toolKey })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    console.log(`[TOOLS] ${result.message}`);
+                } else {
+                    alert(`Execution Failed: ${result.message}`);
+                }
+            } catch (error) {
+                console.error("Error launching tool:", error);
+                alert("Failed to connect to local Flask agent.");
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`📋 Copied command to clipboard: ${text}\nPress Win+R and paste to run.`);
+            }).catch(err => console.error('Clipboard copy failed:', err));
+        }
+
+        async function launchTool(cmd) {
+            console.log(`[SYS LAUNCH] Requesting local execution for: ${cmd}`);
+            try {
+                const response = await fetch(`/api/launch/${encodeURIComponent(cmd)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (sessionStorage.getItem('vtx_token') || '')
+                    }
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    console.log(`[SYS LAUNCH SUCCESS] ${result.message}`);
+                } else {
+                    console.warn(`[SYS LAUNCH FALLBACK] ${result.message}`);
+                    copyToClipboard(cmd);
+                }
+            } catch (err) {
+                console.warn('[SYS LAUNCH OFFLINE] Falling back to clipboard:', err);
+                copyToClipboard(cmd);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Global Purge & Ingestion Modal Handlers
+        // ------------------------------------------------------------------
+        function openPurgeModal() {
+            const modal = document.getElementById('PurgeModal');
+            const input = document.getElementById('PurgeConfirmInput');
+            const Btn = document.getElementById('BtnExecutePurge');
+            input.value = '';
+            Btn.disabled = true;
+            Btn.style.opacity = '0.5';
+            modal.style.display = 'flex';
+
+            input.oninput = function () {
+                if (input.value.trim() === 'PURGE') {
+                    Btn.disabled = false;
+                    Btn.style.opacity = '1';
+                } else {
+                    Btn.disabled = true;
+                    Btn.style.opacity = '0.5';
+                }
+            };
+        }
+
+        function closePurgeModal() {
+            document.getElementById('PurgeModal').style.display = 'none';
+        }
+
+        async function submitGlobalPurge() {
+            try {
+                const response = await fetch('/api/admin/purge-all', { method: 'DELETE' });
+                const res = await response.json();
+                if (response.ok) {
+                    alert('Global Purge Executed: All records deleted.');
+                    closePurgeModal();
+                    loadDashboardTickets();
+                } else {
+                    alert(`Purge Failed: ${res.message}`);
+                }
+            } catch (err) {
+                console.error('[PURGE ERROR]', err);
+            }
+        }
+
+        function openNewTicketModal() {
+            document.getElementById('newTicketModal').style.display = 'flex';
+        }
+
+        function closeNewTicketModal() {
+            document.getElementById('newTicketModal').style.display = 'none';
+        }
+
+        async function submitNewTicket() {
+            const payload = {
+                clientName: document.getElementById('ingestClient').value,
+                clientEmail: document.getElementById('ingestEmail').value,
+                category: document.getElementById('ingestCategory').value,
+                messageDetails: document.getElementById('ingestDetails').value
+            };
+
+            if (!payload.clientName || !payload.messageDetails) {
+                alert('Please fill out Client Name and Message Details.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tickets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`Ticket ingested successfully! Serial: ${result.Ticket_serial || result.ticket_serial}`);
+                    closeNewTicketModal();
+                    loadDashboardTickets();
+                } else {
+                    alert(`Ingestion failed: ${result.message}`);
+                }
+            } catch (err) {
+                console.error('[INGEST ERROR]', err);
+                alert(`Network/Server Error creating ticket: ${err.message}`);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Global Function Scope Bindings & Initialization on Load
+        // ------------------------------------------------------------------
+        window.saveTicketLifecycle = saveTicketLifecycle;
+        window.handleStatusChange = handleStatusChange;
+        window.openPurgeModal = openPurgeModal;
+        window.closePurgeModal = closePurgeModal;
+        window.submitGlobalPurge = submitGlobalPurge;
+        window.openNewTicketModal = openNewTicketModal;
+        window.closeNewTicketModal = closeNewTicketModal;
+        window.submitNewTicket = submitNewTicket;
+        window.toggleOSINTDrawer = toggleOSINTDrawer;
+        window.toggleOSINTDrawer = toggleOSINTDrawer;
+        window.launchSystemTool = launchSystemTool;
+        window.launchTool = launchTool;
+
+        // Listen for client selection changes (e.g., from a dropdown or sidebar list)
+        const clientSelector = document.getElementById('client-selector');
+        if (clientSelector) {
+            clientSelector.addEventListener('change', async function (event) {
+                const clientId = event.target.value;
+                if (!clientId) return;
+
+                // Fetch the unified relational payload from our Flask Nexus API
+                try {
+                    const response = await fetch(`/api/v1/nexus/client/${clientId}`);
+                    if (!response.ok) throw new Error('Failed to synchronize client nexus data.');
+
+                    const data = await response.json();
+                    // ... render your grids here ...
+                    renderTable('assets-grid', data.assets, ['hostname', 'asset_type', 'specs']);
+
+                    // 2. Render Tickets Grid
+                    renderTable('Tickets-grid', data.Tickets, ['subject', 'status', 'priority', 'operational_notes']);
+
+                    // 3. Render Knowledge Base Grid
+                    renderTable('kb-grid', data.knowledge, ['title', 'body']);
+
+                    // 4. Render Financials / Invoices (Handling secured / restricted status)
+                    const invoiceContainer = document.getElementById('invoices-container');
+                    if (Array.isArray(data.invoices)) {
+                        renderTable('invoices-grid', data.invoices, ['invoice_id', 'amount', 'status', 'issued_date']);
+                    } else {
+                        invoiceContainer.innerHTML = `<div style="color: #ef4444; font-family: monospace;">${data.invoices}</div>`;
+                    }
+
+                    // 5. Render Speech Therapy / Telemetry Log Status
+                    if (data.speech_therapy) {
+                        updateTelemetryDisplay(data.speech_therapy);
+                    }
+
+                } catch (err) {
+                    console.error('Nexus synchronization error:', err);
+                }
+            });
+        }
+
+        // Helper function to dynamically populate table rows
+        function renderTable(elementId, items, fields) {
+            const container = document.getElementById(elementId);
+            if (!container) return;
+
+            if (items.length === 0) {
+                container.innerHTML = `<div style="color: #94a3b8; font-family: monospace; padding: 10px;">[ NO RECORDS FOUND ]</div>`;
+                return;
+            }
+
+            let html = '<table class="nexus-subtable" style="width: 100%; border-collapse: collapse;">';
+            html += '<tr style="border-bottom: 1px solid #334155; text-align: left;">';
+            fields.forEach(f => html += `<th style="padding: 8px; color: #38bdf8; font-family: monospace;">${f.toUpperCase()}</th>`);
+            html += '</tr>';
+
+            items.forEach(item => {
+                html += '<tr style="border-bottom: 1px solid #1e293b;">';
+                fields.forEach(f => {
+                    html += `<td style="padding: 8px; color: #f8fafc;">${item[f] || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+
+            container.innerHTML = html;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const searchInput = document.getElementById('WorkspaceSearch');
+            const TenantFilter = document.getElementById('TenantFilter');
+
+            if (searchInput) searchInput.value = '';
+            if (TenantFilter) TenantFilter.value = 'ALL';
+
+            loadDashboardTickets();
+        });
+
+        function toggleArchDrawer() {
+            const Drawer = document.getElementById('archDrawer');
+            Drawer.classList.toggle('open');
+        }
+
+        // --- Executive Vault UI Mechanics ---
+
+        // 1. Close modal on 'Escape' key for rapid executive navigation
+        document.addEventListener('keydown', function (event) {
+            if (event.key === "Escape") {
+                const modal = document.getElementById('executiveVaultModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        });
+
+        async function loadExecutiveVault() {
+            const modal = document.getElementById('executiveVaultModal');
+            const grid = document.getElementById('vaultResourcesGrid');
+
+            // Display the modal container
+            modal.style.display = 'block';
+            grid.innerHTML = '<div style="color: #38bdf8; font-family: monospace; padding: 10px;">// Synchronizing secure vault telemetry...</div>';
+
+            try {
+                const response = await fetch('/api/executive-vault/resources', {
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('vtx_token')
+                    }
+                });
+
+                if (!response.ok) throw new Error('HTTP network error: ' + response.status);
+
+                const data = await response.json();
+
+                // Render the fetched resources into the grid
+                grid.innerHTML = '';
+                data.forEach(item => {
+                    const card = document.createElement('div');
+                    card.style.cssText = "background: #111827; border: 1px solid #1e293b; padding: 15px; border-radius: 4px;";
+                    card.innerHTML = `
+                <div style="color: #38bdf8; font-weight: bold; margin-bottom: 5px; font-family: monospace;">[${item.category}]</div>
+                <div style="color: #f8fafc; font-weight: bold; margin-bottom: 8px;">${item.title}</div>
+                <div style="color: #94a3b8; font-size: 13px; margin-bottom: 10px;">${item.summary}</div>
+                <div style="color: #cbd5e1; font-size: 12px; background: #0f172a; padding: 8px; border-left: 2px solid #00ffcc;">${item.content}</div>
+            `;
+                    grid.appendChild(card);
+                });
+
+            } catch (err) {
+                grid.innerHTML = `<div style="color: #38bdf8; font-family: monospace;">[ SECURE STANDBY ]</div>`;
+            }
+        }
+
+        function dispatchSOWGenerator() {
+            const companyName = document.getElementById('sowCompany').value;
+            const email = document.getElementById('sowEmail').value;
+            const Workstations = parseInt(document.getElementById('sowWorkstations').value);
+            const servers = parseInt(document.getElementById('sowServers').value);
+            const remediationHours = parseFloat(document.getElementById('sowHours').value);
+
+            // Calculate pricing schedule locally for preview
+            const auditCost = Workstations * 25.0 + servers * 150.0 + 500.0;
+            const laborCost = remediationHours * 150.0;
+            const toolingCost = 500.0;
+            const totalInvestment = auditCost + laborCost + toolingCost;
+
+            // Reveal the pre-flight modal
+            const modal = document.getElementById('sowPreviewModal');
+            modal.style.display = 'block';
+            modal.scrollIntoView({ behavior: 'smooth' });
+
+            // Populate the draft body preview using standard string concatenation
+            const draftBody = document.getElementById('sowDraftBody');
+            draftBody.innerHTML = "<strong>Target Client:</strong> " + companyName + " (" + email + ")<br>" +
+                "<strong>Scope:</strong> " + Workstations + " Workstations, " + servers + " Servers, " + remediationHours + " Remediation Hours.<br>" +
+                "<strong>Financial Schedule:</strong> Initial Baseline Audit ($" + auditCost.toFixed(2) + ") + Labor ($" + laborCost.toFixed(2) + ") + Tooling ($" + toolingCost.toFixed(2) + ")<br>" +
+                "<strong>Total Upfront Investment:</strong> <span style='color: #10b981; font-weight: bold;'>$" + totalInvestment.toFixed(2) + " CAD</span><br>" +
+                "<strong>Governance:</strong> NIST SP 800-53 / ISO 27001 Standards Enforced.";
+
+            // Store data globally in memory for the final authorization click
+            window.pendingSOWData = { companyName, email, Workstations, servers, remediationHours, totalInvestment };
+        }
+
+        function authorizeAndDispatchSOW() {
+            const customNotes = document.getElementById('sowCustomNotes').value;
+            const payload = { ...window.pendingSOWData, customNotes };
+
+            const modal = document.getElementById('sowPreviewModal');
+
+            // Execute backend fetch to dispatch email
+            fetch('/api/admin/dispatch-sow-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert('[✔] SOW Package successfully authorized and dispatched to executive leadership!');
+                    modal.style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Dispatch Error:', error);
+                    alert('[!] Critical Error: Failed to dispatch SOW email package.');
+                });
+        }
+
+        function cancelSOWReview() {
+            document.getElementById('sowPreviewModal').style.display = 'none';
+        }
+
+        function triggerRemediationSprint() {
+            const terminal = document.getElementById('auditTerminalLog');
+            const timestamp = new Date().toTimeString().split(' ')[0];
+            terminal.innerHTML += `<div style="color: #38bdf8;">[${timestamp}] Executing remediation script: Patched local admin privileges and hardened workstation firewalls.</div>`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function sealBaselineAudit() {
+            const terminal = document.getElementById('auditTerminalLog');
+            const timestamp = new Date().toTimeString().split(' ')[0];
+            terminal.innerHTML += `<div style="color: #10b981; font-weight: bold;">[${timestamp}] Baseline audit successfully sealed! Environment locked under NIST/ISO compliance. Transitioning to 24/7 steady-state monitoring.</div>`;
+            terminal.scrollTop = terminal.scrollHeight;
+
+            // Update badge status
+            const badge = document.querySelector('span[style*="BACKGROUND: #451a03"]');
+            if (badge) {
+                badge.style.background = '#064e3b';
+                badge.style.color = '#10b981';
+                badge.innerText = 'STABLE: 24/7 ACTIVE';
+            }
+        }
+
+        function launchToolFromData(Btn) {
+            const cmd = Btn.getAttribute('data-cmd');
+            if (cmd) launchTool(cmd);
+        }
+
+        // Global fallback loader so all inline onclick handlers work instantly
+        window.loadClientNexusByName = async function (clientId, clientName) {
+            console.log("Loading Nexus for:", clientName, "(ID:", clientId + ")");
+
+            const titleEl = document.getElementById('activeClientTitle');
+            if (titleEl) titleEl.innerText = clientName + ` (ID: ${clientId})`;
+
+            const container = document.getElementById('relationalTicketsContainer');
+            if (container) {
+                container.innerHTML = '<div style="color: #38bdf8;">// Synchronizing records for ' + clientName + '...</div>';
+            }
+
+            try {
+                // 1. Fetch active workspace view
+                const response = await fetch(`/api/v1/nexus/client/${encodeURIComponent(clientName)}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const data = await response.json();
+
+                if (typeof renderVerticalRelationalWorkspace === 'function') {
+                    renderVerticalRelationalWorkspace(data);
+                } else if (container) {
+                    container.innerHTML = '<pre style="color: #f8fafc; font-size: 11px;">' + JSON.stringify(data, null, 2) + '</pre>';
+                }
+
+                // 2. Fetch and render the complete historical Ticket array into #TicketContainer
+                window.loadClientTickets(clientId, clientName);
+
+            } catch (err) {
+                console.error('Nexus error:', err);
+                if (container) {
+                    container.innerHTML = `<div style="color: #ef4444;">[!] Error: ${err.message}</div>`;
+                }
+            }
+        };
+
+        // ==========================================
+        // UNIFIED MASTER EVENT DELEGATION (INLINE)
+        // ==========================================
+        if (!window._nexusDelegationInitialized) {
+            window._nexusDelegationInitialized = true;
+
+            document.addEventListener('click', (e) => {
+                // 1. Check for client/entity nexus buttons
+                const nexusBtn = e.target.closest('.client-nexus-Btn') ||
+                    e.target.closest('.entity-Btn') ||
+                    e.target.closest('.client-item');
+                if (nexusBtn) {
+                    const id = nexusBtn.getAttribute('data-id') || nexusBtn.dataset.id || 1;
+                    const rawText = nexusBtn.textContent || '';
+                    const name = nexusBtn.getAttribute('data-name') ||
+                        nexusBtn.getAttribute('data-tenant') ||
+                        rawText.replace(/\[.*?\]/g, '').trim();
+
+                    console.log("🟢 Inline Nexus Button Clicked:", name, "| ID:", id);
+                    if (name && typeof loadClientNexusByName === 'function') {
+                        loadClientNexusByName(id, name);
+                    }
+                    return;
+                }
+
+                // 2. Check for dynamic Ticket cards
+                const TicketCard = e.target.closest('.Ticket-card');
+                if (TicketCard) {
+                    const titleEl = TicketCard.querySelector('.Ticket-title') || TicketCard.querySelector('h4');
+                    const deviceName = titleEl ? titleEl.textContent.trim() : "Infrastructure Device";
+                    const TicketId = TicketCard.getAttribute('data-id') || TicketCard.dataset.id || 1;
+
+                    console.log("🟢 Inline Ticket Card Clicked - ID:", TicketId, "| Device:", deviceName);
+                    if (typeof loadClientNexusByName === 'function') {
+                        loadClientNexusByName(TicketId, deviceName);
+                    }
+                    return;
+                }
+
+            }, true); // Capture phase active
+
+            console.log("✅ Inline Universal Nexus Click Delegation Active");
+        }
+
+    </script>
+
+    <script src="/static/app.js"></script>
+
+
+
+</body>

@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- ==========================================================================
+   VERTEX SYSTEMS - PUBLIC CONSULTING LANDING PAGE
+   ========================================================================== -->
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertex Systems - Perimeter Authentication</title>
+
+    <!-- Cache-Busted Core Stylesheet -->
+    <link rel="stylesheet" href="style.css?v=999">
+
+    <!-- Microsoft Authentication Library (MSAL v2) -->
+    <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+
+    <style>
+        /* EMERGENCY OVERRIDE FOR EXECUTIVE GATEWAY */
+        #dashboard .dashboard-wrapper {
+            position: relative !important;
+            background-color: #0b0f19 !important;
+            border: 1px solid #1f2937 !important;
+            border-radius: 8px !important;
+            padding: 0 !important;
+            min-height: 500px !important;
+            height: 500px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            overflow: hidden !important;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- Left Panel: Card Stream -->
+    <div id="credentials-list" class="credentials-panel"></div>
+
+    <!-- Right Panel: RAW_DECRYPTER Viewport -->
+    <div id="decrypter-viewport" class="viewport-panel">
+        <img id="active-doc-display" src="./Credentials/BSc_CIS_CUMLAUDE.png" alt="Credential Viewport" />
+    </div>
+
+    <!-- ======================================================================
+       1. SECURITY ACCESS OVERLAY (CEO & GUEST ACCESS GATEWAY)
+       ====================================================================== -->
+    <div class="vault-gateway-overlay" id="vaultOverlay" style="background: #0b0f19;">
+        <div class="vault-card">
+            <div class="vault-icon">🔒</div>
+            <h3>Executive Access Required</h3>
+            <p>This workspace displays live operational infrastructure vectors and real-time financial liability
+                tracking for Vertex Systems.</p>
+
+            <div class="vault-warning-badge">
+                RESTRICTED TERMINAL — LEVEL 4 CREDENTIALS ONLY
+            </div>
+
+
+            <!-- Microsoft Entra ID Login Trigger -->
+            <button type="button" class="vault-submit-btn" onclick="loginWithEntraID()"
+                style="background: #0078d4; color: #ffffff; border: none; font-weight: bold;">
+                🔑 LOGIN WITH MICROSOFT ENTRA ID
+            </button>
+
+            <div class="vault-footer">
+                <p>Don't have an authorization token? <a href="#contact" class="vault-link">Request Engagement
+                        Protocol</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+       2. HEADS-UP DISPLAY (HUD) TIMEOUT WARNING (Fixed Top-Right)
+       ====================================================================== -->
+    <div id="securityHUD"
+        style="position: fixed; top: 80px; right: 20px; z-index: 999; background: rgba(33, 37, 41, 0.95); color: #fab005; border: 1px solid #fab005; padding: 12px 20px; border-radius: 6px; font-family: monospace; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: none; pointer-events: none; transition: opacity 0.3s ease;">
+        ⚠️ SESSION EXPIRES IN: <span id="hudClock" style="font-weight: bold; color: #ff922b;">60s</span>
+    </div>
+
+    <!-- ======================================================================
+       3. SECOPS CHAT ASSISTANT WIDGET (Fixed Bottom-Right)
+       ====================================================================== -->
+    <div id="secops-bot-container"
+        style="position: fixed; bottom: 30px; right: 30px; z-index: 10000; font-family: 'Courier New', Courier, monospace;">
+
+        <!-- Launcher Button -->
+        <button id="bot-launcher" onclick="toggleChatWindow()"
+            style="background: #000; color: #00ff66; border: 2px solid #0055ff; box-shadow: 0 0 15px rgba(0, 85, 255, 0.4); padding: 15px 20px; border-radius: 50px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 10px; transition: all 0.3s ease;">
+            <span
+                style="display: inline-block; width: 10px; height: 10px; background: #00ff66; border-radius: 50%;"></span>
+            🤖 SECOPS ASSISTANT
+        </button>
+
+        <!-- Interactive Chat Console Window -->
+        <div id="chat-console"
+            style="display: none; width: 350px; height: 450px; background: rgba(5, 10, 20, 0.95); border: 2px solid #0055ff; box-shadow: 0 0 25px rgba(0, 85, 255, 0.6); border-radius: 12px; flex-direction: column; overflow: hidden; transition: all 0.3s ease;">
+
+            <div
+                style="background: #0055ff; color: #fff; padding: 12px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #00ff66;">
+                <span>📡 VTX_SECOPS_v1.2</span>
+                <button onclick="toggleChatWindow()"
+                    style="background: none; border: none; color: #fff; cursor: pointer; font-weight: bold;">[X]</button>
+            </div>
+
+            <!-- Feed Window -->
+            <div id="chat-feed"
+                style="flex: 1; padding: 15px; overflow-y: auto; color: #00ff66; font-size: 13px; display: flex; flex-direction: column; gap: 12px;">
+                <div class="bot-msg">> Initialization secure... Perimeter monitored.</div>
+                <div class="bot-msg">> Welcome to Vertex Systems. Choose an option below to securely interface with our
+                    desk:</div>
+            </div>
+
+            <!-- Triage Selection Actions -->
+            <div id="chat-actions"
+                style="padding: 12px; background: rgba(0, 85, 255, 0.1); border-top: 1px solid rgba(0, 85, 255, 0.3); display: flex; flex-direction: column; gap: 8px;">
+                <button onclick="selectTriage('MSP Support')"
+                    style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 8px; text-align: left; cursor: pointer; font-size: 11px; border-radius: 4px;">[1]
+                    Request IT/MSP Support</button>
+                <button onclick="selectTriage('Consultation')"
+                    style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 8px; text-align: left; cursor: pointer; font-size: 11px; border-radius: 4px;">[2]
+                    Prospective Client / Consult</button>
+            </div>
+
+            <!-- Chat Ticket Form -->
+            <div id="chat-input-form"
+                style="display: none; padding: 12px; background: #070f24; border-top: 1px solid #00ff66; flex-direction: column; gap: 6px;">
+                <input type="text" id="vtx-client-name" placeholder="Name">
+                <input type="email" id="vtx-client-email" placeholder="Email Address">
+                <textarea id="vtx-client-msg" placeholder="Message / Details"></textarea>
+                <button type="button" onclick="submitSecopsTicket(event)">TRANSMIT DATA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+       4. GLOBAL HEADER NAVIGATION
+       ====================================================================== -->
+    <header>
+        <div class="logo">VERTEX SYSTEMS</div>
+        <nav>
+            <a href="#services">Services</a>
+            <a href="#portfolio">Credentials</a>
+            <a href="#dashboard">Executive Gateway</a>
+            <a href="#contact">Contact</a>
+            <button type="button" class="nav-lock-btn" onclick="lockdownTerminal();"
+                style="margin-left: 15px; padding: 5px 12px; background: #c92a2a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                🔒 Lock Terminal
+            </button>
+        </nav>
+    </header>
+
+    <!-- ======================================================================
+       5. MAIN CONTENT WORKSPACE
+       ====================================================================== -->
+    <main>
+
+        <!-- HERO SECTION -->
+        <section id="hero">
+            <h1>Secure IT Infrastructure & Enterprise Architecture</h1>
+            <p>Minimizing threat surfaces and engineering high-availability directory environments for modern corporate
+                operations.</p>
+        </section>
+
+        <!-- SERVICES SECTION -->
+        <section id="services">
+            <h2>Enterprise-Grade IT Solutions for Local Business</h2>
+            <p class="section-subtitle">Delivering high-performance architecture, rock-solid uptime, and hands-on
+                engineering to keep your business moving.</p>
+
+            <div class="services-list">
+                <div class="service-item">
+                    <h4>Hybrid Infrastructure & Virtualization</h4>
+                    <p>Maximizing compute power, reducing your physical footprint, and scaling operations securely. We
+                        specialize in design, provisioning, and hardening modern Windows Server ecosystems, Active
+                        Directory domains, and high-performance Hyper-V virtualization layers.</p>
+                </div>
+                <div class="service-item">
+                    <h4>On-Site Field Engineering & Continuity</h4>
+                    <p>Minimizing business interruption with proactive diagnostics, rapid troubleshooting, and robust
+                        disaster recovery. Get direct, hands-on expertise maintaining, testing, and troubleshooting
+                        network switches, routing matrices, and physical workstations.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- VERIFIED CREDENTIALS VIEWPORT -->
+        <section id="portfolio" style="padding: 60px 20px; background: #0b0f19;">
+            <div style="max-width: 1200px; margin: 0 auto;">
+                <h2
+                    style="font-family: monospace; color: #f8fafc; font-size: 2rem; margin-bottom: 10px; text-align: center;">
+                    🎓 VERIFIED CREDENTIALS & AUDIT LOGS</h2>
+                <p style="color: #94a3b8; font-family: sans-serif; margin-bottom: 40px; text-align: center;">Hover over
+                    any infrastructure milestone vector below to project the official verification transcript in the
+                    live viewport.</p>
+
+                <div style="display: flex; gap: 30px; flex-wrap: wrap; min-height: 500px;">
+
+                    <!-- LEFT: Credentials Matrix Index -->
+                    <div
+                        style="flex: 1; min-width: 320px; max-width: 450px; display: flex; flex-direction: column; gap: 15px;">
+
+                        <div class="credential-trigger" data-doc="assets/docs/DeVry_BSc_Honours.jpg"
+                            data-title="BSc in Computer Information Systems"
+                            data-details="DeVry Institute of Technology — Graduated Cum Laude (GPA 3.65/4.0). Specializing in enterprise compute layers, directory governance, and high-availability server networks."
+                            style="background: #0f172a; border: 1px solid #1e293b; border-left: 4px solid #38bdf8; padding: 15px; border-radius: 6px; cursor: pointer;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong style="color: #38bdf8; font-family: monospace;">[ VECTOR_01 ]</strong>
+                                <span
+                                    style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid #38bdf8; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 4px; font-weight: bold;">VERIFIED</span>
+                            </div>
+                            <h4 style="color: #f1f5f9; margin: 0 0 5px 0; font-family: monospace;">Computer Information
+                                Systems</h4>
+                            <small style="color: #64748b; font-family: sans-serif;">DeVry Institute of Technology • BSc
+                                (Honours)</small>
+                        </div>
+
+                        <div class="credential-trigger" data-doc="assets/docs/Database_Developer_Diploma.jpg"
+                            data-title="Database Application Development"
+                            data-details="Advanced Relational Database Design. Structured query optimization, SQL Server architectures, and scalable logical schema mapping."
+                            style="background: #0f172a; border: 1px solid #1e293b; border-left: 4px solid #00ff66; padding: 15px; border-radius: 6px; cursor: pointer;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong style="color: #00ff66; font-family: monospace;">[ VECTOR_02 ]</strong>
+                                <span
+                                    style="background: rgba(0, 255, 102, 0.1); color: #00ff66; border: 1px solid #00ff66; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 4px; font-weight: bold;">GRADUATE</span>
+                            </div>
+                            <h4 style="color: #f1f5f9; margin: 0 0 5px 0; font-family: monospace;">Database Architecture
+                            </h4>
+                            <small style="color: #64748b; font-family: sans-serif;">Advanced Graduate Diploma • Seneca
+                                College</small>
+                        </div>
+
+                        <div class="credential-trigger" data-doc="assets/docs/Cybersecurity_Specialization.jpg"
+                            data-title="Cybersecurity Operations Specialization"
+                            data-details="Deep threat modeling using the STRIDE framework, network perimeter design, access control mechanics, and Microsoft SC-900 compliance standards."
+                            style="background: #0f172a; border: 1px solid #1e293b; border-left: 4px solid #a855f7; padding: 15px; border-radius: 6px; cursor: pointer;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong style="color: #a855f7; font-family: monospace;">[ VECTOR_03 ]</strong>
+                                <span
+                                    style="background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid #a855f7; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 4px; font-weight: bold;">SEC_OPS</span>
+                            </div>
+                            <h4 style="color: #f1f5f9; margin: 0 0 5px 0; font-family: monospace;">Cybersecurity
+                                Operations</h4>
+                            <small style="color: #64748b; font-family: sans-serif;">Specialization & Threat
+                                Hardening</small>
+                        </div>
+
+                        <div class="credential-trigger" data-doc="assets/docs/Infrastructure_Lab_Systems.jpg"
+                            data-title="Hybrid Infrastructure Lab Systems"
+                            data-details="Designing and maintaining physical hardware architectures hosting nested virtualization clusters (Hyper-V), Windows Server nodes, and directory integrity arrays."
+                            style="background: #0f172a; border: 1px solid #1e293b; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; cursor: pointer;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong style="color: #f59e0b; font-family: monospace;">[ VECTOR_04 ]</strong>
+                                <span
+                                    style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid #f59e0b; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 4px; font-weight: bold;">ACTIVE_DIR</span>
+                            </div>
+                            <h4 style="color: #f1f5f9; margin: 0 0 5px 0; font-family: monospace;">Infrastructure
+                                Engineering</h4>
+                            <small style="color: #64748b; font-family: sans-serif;">Active Directory & Lab
+                                Deployments</small>
+                        </div>
+
+                    </div>
+
+                    <!-- RIGHT: Decryption Viewport Panel -->
+                    <div
+                        style="flex: 1.5; min-width: 320px; background: #070a12; border: 2px solid #1e293b; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden;">
+                        <div
+                            style="background: #0f172a; border-bottom: 1px solid #1e293b; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-family: monospace; font-size: 12px;">
+                            <span style="color: #64748b;">📡 VIEWPORT_STREAM: <span id="viewport-status"
+                                    style="color: #00ff66; font-weight: bold;">STANDBY</span></span>
+                            <span style="color: #38bdf8;" id="viewport-resolution">RAW_DECRYPTER_v1.0</span>
+                        </div>
+
+                        <div id="viewport-canvas"
+                            style="flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 20px; min-height: 380px;">
+                            <div id="viewport-placeholder"
+                                style="text-align: center; color: #334155; font-family: monospace; padding: 20px; max-width: 400px;">
+                                <div style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;">🔒</div>
+                                <p style="margin: 0 0 10px 0; color: #64748b; font-weight: bold;">INTEGRITY MONITOR
+                                    STANDBY</p>
+                                <p style="margin: 0; color: #475569; font-size: 12px; line-height: 1.5;">Select or hover
+                                    over any credential vector to initialize decryption protocols.</p>
+                            </div>
+                            <img id="viewport-img" src="" alt="Credential Output View"
+                                style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; display: none; border: 1px solid #334155;">
+                        </div>
+
+                        <div id="viewport-details-panel"
+                            style="background: #0d1321; border-top: 1px solid #1e293b; padding: 15px 20px; font-family: monospace; min-height: 80px;">
+                            <h4 id="viewport-title" style="color: #38bdf8; margin: 0 0 8px 0; font-size: 14px;">[
+                                TERMINAL IDLE ]</h4>
+                            <p id="viewport-desc"
+                                style="color: #94a3b8; margin: 0; font-size: 12px; line-height: 1.5; font-family: sans-serif;">
+                                Awaiting security decryption handshakes.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- EXECUTIVE GATEWAY SECTION -->
+        <section id="dashboard">
+            <h2>Enterprise Migration Metrics & Capstone Audit Environment</h2>
+            <p class="section-subtitle">Real-time infrastructure analytics and threat surface validation monitoring
+                workspace.</p>
+
+            <div class="dashboard-wrapper">
+
+                <!-- Background Blurred Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <span class="metric-label">Active Directory Nodes</span>
+                        <span class="metric-value">VS-HOST-01 // VS-WKST-01</span>
+                        <span class="metric-status online">• System Operational</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Active Threat Surface Index</span>
+                        <span class="metric-value">0.02%</span>
+                        <span class="metric-status secure">• Highly Protected</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Automated Audits Run (Capstone)</span>
+                        <span class="metric-value">1,428</span>
+                        <span class="metric-status complete">• Integrity Verified</span>
+                    </div>
+                </div>
+
+                <!-- Gateway Prompt Overlay Card -->
+                <div class="dashboard-overlay">
+                    <div class="login-prompt">
+                        <div class="shield-lock">🔒</div>
+                        <h3>Protected Client Gateway</h3>
+                        <p>Multi-Factor Authentication Required to Access Live Terminal & Log Audits.</p>
+                        <input type="password" placeholder="••••••••" disabled class="mock-input">
+                        <button class="mock-btn" onclick="return false;">Authenticate Gateway</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- EXECUTIVE TRUST VAULT: STRIDE THREAT MATRIX -->
+        <section id="trust-vault-matrix"
+            style="background: #030712; border: 1px solid #1f2937; border-radius: 8px; padding: 24px; margin: 20px 0; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif;">
+
+            <!-- Vault Header -->
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; padding-bottom: 16px; margin-bottom: 20px;">
+                <div>
+                    <h2
+                        style="margin: 0; color: #38bdf8; font-size: 1.4rem; display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #00ffcc;">🛡️</span> Executive Trust Vault — STRIDE Threat Matrix
+                    </h2>
+                    <p style="margin: 4px 0 0 0; color: #9ca3af; font-size: 0.88rem;">
+                        Continuous threat modeling &amp; regulatory mitigation mapping (SC-900 / NIST SP 800-53 Aligned)
+                    </p>
+                </div>
+                <span
+                    style="background: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc; color: #00ffcc; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;">
+                    VERIFIED SECURE
+                </span>
+            </div>
+
+            <!-- Threat Category Filter Tabs -->
+            <div id="stride-tabs" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+                <button onclick="filterStride('ALL')" class="stride-tab active-tab"
+                    style="background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 500;">All
+                    Controls (6)</button>
+                <button onclick="filterStride('S')" class="stride-tab"
+                    style="background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;">Spoofing</button>
+                <button onclick="filterStride('T')" class="stride-tab"
+                    style="background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;">Tampering</button>
+                <button onclick="filterStride('R')" class="stride-tab"
+                    style="background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;">Repudiation</button>
+                <button onclick="filterStride('I')" class="stride-tab"
+                    style="background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;">Info
+                    Disclosure</button>
+                <button onclick="filterStride('D')" class="stride-tab"
+                    style="background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;">Denial
+                    of Service</button>
+                <button onclick="filterStride('E')" class="stride-tab"
+                    style="background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;">Elevation
+                    of Privilege</button>
+            </div>
+
+            <!-- Matrix Cards Container -->
+            <div id="stride-matrix-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+                <!-- Dynamically Populated by JavaScript below -->
+            </div>
+        </section>
+
+        <!-- STRIDE MATRIX CONTROLLER SCRIPT -->
+        <script>
+            const strideData = [
+                {
+                    code: 'S',
+                    category: 'Spoofing Identity',
+                    threat: 'Unauthorized entity pretending to be a legitimate user or domain admin.',
+                    impact: 'CRITICAL',
+                    mitigation: 'Microsoft Entra ID Phishing-Resistant MFA, FIDO2 Security Keys, Conditional Access Policies.',
+                    controlRef: 'AC-2 / IA-2'
+                },
+                {
+                    code: 'T',
+                    category: 'Tampering with Data',
+                    threat: 'Malicious modification of transaction logs, client records, or core web files.',
+                    impact: 'HIGH',
+                    mitigation: 'TLS 1.3 Transport Encryption, SHA-256 File Integrity Monitoring (FIM), Encrypted SQL Backups.',
+                    controlRef: 'SI-7 / SC-8'
+                },
+                {
+                    code: 'R',
+                    category: 'Repudiation',
+                    threat: 'User or administrator denies performing an action due to missing audit trails.',
+                    impact: 'MEDIUM',
+                    mitigation: 'Centralized Immutable Syslog, Windows Event ID Security Auditing, WORM Log Storage.',
+                    controlRef: 'AU-2 / AU-6'
+                },
+                {
+                    code: 'I',
+                    category: 'Information Disclosure',
+                    threat: 'Exfiltration of sensitive client information, tax records, or legal filings.',
+                    impact: 'CRITICAL',
+                    mitigation: 'Microsoft Purview Data Loss Prevention (DLP), AES-256 BitLocker Encryption, RBAC Dynamic Scoping.',
+                    controlRef: 'MP-5 / SC-28'
+                },
+                {
+                    code: 'D',
+                    category: 'Denial of Service',
+                    threat: 'Network traffic flood or resource starvation knocking administration tools offline.',
+                    impact: 'HIGH',
+                    mitigation: 'Virtual Switch Rate Limiting, Automated Hyper-V Failover Clustering, Edge Firewall Rule Sets.',
+                    controlRef: 'SC-5 / CP-8'
+                },
+                {
+                    code: 'E',
+                    category: 'Elevation of Privilege',
+                    threat: 'Standard local user account attempting token manipulation to gain Domain Admin.',
+                    impact: 'CRITICAL',
+                    mitigation: 'Privileged Identity Management (PIM) JIT Elevation, Domain Admin OU Isolation, LAPS Deployment.',
+                    controlRef: 'AC-6 / IA-5'
+                }
+            ];
+
+            function renderStrideCards(filter = 'ALL') {
+                const grid = document.getElementById('stride-matrix-grid');
+                if (!grid) return;
+
+                const filtered = filter === 'ALL' ? strideData : strideData.filter(item => item.code === filter);
+
+                grid.innerHTML = filtered.map(item => {
+                    const impactColor = item.impact === 'CRITICAL' ? '#ef4444' : item.impact === 'HIGH' ? '#f59e0b' : '#3b82f6';
+                    const impactBg = item.impact === 'CRITICAL' ? 'rgba(239, 68, 68, 0.15)' : item.impact === 'HIGH' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+
+                    return `
+            <div style="background: #0b0f19; border: 1px solid #1f2937; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: 700; color: #38bdf8; font-size: 0.95rem;">[${item.code}] ${item.category}</span>
+                        <span style="background: ${impactBg}; border: 1px solid ${impactColor}; color: ${impactColor}; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">
+                            ${item.impact}
+                        </span>
+                    </div>
+                    <p style="margin: 0 0 12px 0; color: #9ca3af; font-size: 0.84rem; line-height: 1.4;">
+                        <strong style="color: #d1d5db;">Threat Risk:</strong> ${item.threat}
+                    </p>
+                    <div style="background: #111827; border-left: 3px solid #00ffcc; padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 10px;">
+                        <span style="display: block; font-size: 0.72rem; color: #00ffcc; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Vertex Mitigation Control</span>
+                        <span style="font-size: 0.82rem; color: #e5e7eb; font-weight: 500;">${item.mitigation}</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1e293b; pt-8px; margin-top: 8px; font-size: 0.75rem; color: #64748b;">
+                    <span>Framework Ref: <code style="color: #a7f3d0; background: #064e3b; padding: 1px 4px; border-radius: 3px;">${item.controlRef}</code></span>
+                    <span style="color: #4ade80;">Active</span>
+                </div>
+            </div>
+        `;
+                }).join('');
+            }
+
+            function filterStride(categoryCode) {
+                // Update active tab styles
+                const tabs = document.querySelectorAll('.stride-tab');
+                tabs.forEach(tab => {
+                    tab.style.background = '#0f172a';
+                    tab.style.borderColor = '#1e293b';
+                    tab.style.color = '#94a3b8';
+                });
+
+                event.target.style.background = '#1e293b';
+                event.target.style.borderColor = '#334155';
+                event.target.style.color = '#f8fafc';
+
+                renderStrideCards(categoryCode);
+            }
+
+            // Initial Render on Page Load
+            document.addEventListener('DOMContentLoaded', () => {
+                renderStrideCards('ALL');
+            });
+        </script>
+
+        <!-- CONTACT & SECURE REQUEST FORM -->
+        <section id="contact">
+            <h2>Initialize Engagement Protocol</h2>
+            <p class="section-subtitle">Securely transmit your enterprise infrastructure requirements. Response
+                turnaround strictly managed within 24 business hours.</p>
+
+            <div class="contact-container">
+                <form class="secure-form" id="contactForm">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Principal Consultant / Name</label>
+                            <input type="text" name="name" id="vtx-client-name-main" placeholder="John Doe" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Corporate Email Identity</label>
+                            <input type="email" name="email" id="vtx-client-email-main"
+                                placeholder="j.doe@enterprise.com" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label>SCOPE MATRIX DETAILS / OBJECTIVE</label>
+                            <textarea rows="5" name="details" id="vtx-client-msg-main"
+                                placeholder="Briefly outline your primary objective..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Infrastructure Vector / Scope of Need</label>
+                        <select name="vector" id="vtx-client-vector">
+                            <option value="Active Directory Architecture & Governance">Active Directory Architecture &
+                                Governance</option>
+                            <option value="Threat Surface Minimization & Hardening">Threat Surface Minimization &
+                                Hardening</option>
+                            <option value="Hybrid Infrastructure & Hyper-V Deployment">Hybrid Infrastructure & Hyper-V
+                                Deployment</option>
+                            <option value="Full-Scale Corporate Security Audit">Full-Scale Corporate Security Audit
+                            </option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="submit-btn">Transmit Secure Request</button>
+                </form>
+
+                <br>
+                <hr><br>
+
+                <!-- Persistence Log Table -->
+                <div class="vtx-dashboard-container">
+                    <h3 class="vtx-table-title">📡 Live SecOps Persistence Log (SQL Server Express)</h3>
+                    <table class="vtx-dashboard-table"
+                        style="width:100%; border-collapse: collapse; text-align:left; color:#e0e6ed; font-family:monospace;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #00ff66; color:#00ffff;">
+                                <th style="padding:8px;">Ticket Serial</th>
+                                <th style="padding:8px;">Client Name</th>
+                                <th style="padding:8px;">Email Vector</th>
+                                <th style="padding:8px;">Operational Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vtx-ticket-rows">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: #666; padding:15px;">
+                                    Awaiting secure database connection established token...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>&copy; 2026 Vertex Systems. All Rights Reserved. | Managed Engineering Workspace</p>
+    </footer>
+
+    <!-- ======================================================================
+       6. CLIENT-SIDE JAVASCRIPT ENGINE & API HANDLERS
+       ====================================================================== -->
+    <script>
+        let idleTimer;
+        let warningTimer;
+        let countdownInterval;
+
+        const TOTAL_TIMEOUT = 30000;
+        const WARNING_WINDOW = 10000;
+        let selectedCategory = "";
+
+        // Toggle Floating Chat Assistant Box
+        function toggleChatWindow() {
+            const consoleWin = document.getElementById("chat-console");
+            const launcher = document.getElementById("bot-launcher");
+            if (!consoleWin || !launcher) return;
+
+            if (consoleWin.style.display === "none" || consoleWin.style.display === "") {
+                consoleWin.style.display = "flex";
+                launcher.style.display = "none";
+            } else {
+                consoleWin.style.display = "none";
+                launcher.style.display = "flex";
+            }
+        }
+
+        function selectTriage(category) {
+            selectedCategory = category;
+            const feed = document.getElementById("chat-feed");
+            if (!feed) return;
+
+            feed.innerHTML += `<div style="color: #00ffff; text-align: right; margin-top: 5px;">> Selected: ${category}</div>`;
+            feed.innerHTML += `<div class="bot-msg" style="color: #00ff66;">> Secure form deployed. Provide credentials to establish uplink.</div>`;
+
+            document.getElementById("chat-actions").style.display = "none";
+            document.getElementById("chat-input-form").style.display = "flex";
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        // Send Form Ticket Data to Flask (PORT 5000)
+        function submitSecopsTicket(event) {
+            if (event) event.preventDefault();
+
+            const chatConsole = document.getElementById("chat-console");
+            const isChatActive = chatConsole && chatConsole.style.display === "flex";
+
+            let name, email, msg;
+
+            if (isChatActive) {
+                name = document.getElementById("vtx-client-name")?.value.trim();
+                email = document.getElementById("vtx-client-email")?.value.trim();
+                msg = document.getElementById("vtx-client-msg")?.value.trim();
+            } else {
+                name = document.getElementById("vtx-client-name-main")?.value.trim();
+                email = document.getElementById("vtx-client-email-main")?.value.trim();
+                msg = document.getElementById("vtx-client-msg-main")?.value.trim();
+            }
+
+            if (!name || !email || !msg) {
+                alert("CRITICAL ERROR: Input channels incomplete. All entry lines required.");
+                return;
+            }
+
+            const payload = { name: name, email: email, message: msg };
+
+            // PING FLASK ON PORT 8000
+            // Replace line 534:
+            fetch('/api/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert("Transmission Successful! Ticket Serial: " + data.serial);
+
+                    if (isChatActive) {
+                        document.getElementById("vtx-client-name").value = "";
+                        document.getElementById("vtx-client-email").value = "";
+                        document.getElementById("vtx-client-msg").value = "";
+                    } else {
+                        document.getElementById("vtx-client-name-main").value = "";
+                        document.getElementById("vtx-client-email-main").value = "";
+                        document.getElementById("vtx-client-msg-main").value = "";
+                    }
+                })
+                .catch(error => {
+                    console.error("Pipeline breakdown:", error);
+                    alert("CRITICAL ERROR: Connection to SecOps backend refused.");
+                });
+        }
+
+        // Fetch Live Database Logs from Flask (PORT 8000)
+        async function loadDashboardTickets() {
+            const displayContainer = document.getElementById("vtx-ticket-rows");
+            if (!displayContainer) return;
+
+            try {
+                // PING FLASK ON PORT 8000
+                const response = await fetch('http://127.0.0.1:8000/api/dashboard/tickets');
+                if (!response.ok) throw new Error(`HTTP status error: ${response.status}`);
+
+                const tickets = await response.json();
+                displayContainer.innerHTML = "";
+
+                if (tickets.length === 0) {
+                    displayContainer.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 15px; color: #666;">No active records logged in live database.</td></tr>`;
+                    return;
+                }
+
+                tickets.forEach(ticket => {
+                    const row = document.createElement("tr");
+                    row.style.borderBottom = "1px solid #222";
+                    row.innerHTML = `
+                        <td style="padding:10px; color:#38bdf8;"><strong>${ticket.serial || ('#' + ticket.id)}</strong></td>
+                        <td style="padding:10px;">${ticket.deviceName || ticket.name || 'Unknown'}</td>
+                        <td style="padding:10px; color:#a1a1aa;">${ticket.email || 'N/A'}</td>
+                        <td style="padding:10px; font-style:italic;">${ticket.notes || ticket.message || 'Operational Log Entry'}</td>
+                    `;
+                    displayContainer.appendChild(row);
+                });
+            } catch (error) {
+                console.error("❌ UI Sync Crash:", error);
+                displayContainer.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ff3333; padding:15px;">⚠️ CONFIG FAILURE: Local database link offline.</td></tr>`;
+            }
+        }
+
+        // Session Expiration HUD & Inactivity Logic
+        function resetIdleTimer() {
+            const hud = document.getElementById("securityHUD");
+            if (hud) {
+                hud.style.opacity = "0";
+                hud.style.display = "none";
+            }
+            clearTimeout(idleTimer);
+            clearTimeout(warningTimer);
+            clearInterval(countdownInterval);
+
+            idleTimer = setTimeout(lockdownTerminal, TOTAL_TIMEOUT);
+            warningTimer = setTimeout(showWarningHUD, TOTAL_TIMEOUT - WARNING_WINDOW);
+        }
+
+        function showWarningHUD() {
+            const hud = document.getElementById("securityHUD");
+            const clock = document.getElementById("hudClock");
+            if (!hud || !clock) return;
+
+            hud.style.display = "block";
+            hud.style.opacity = "1";
+
+            let secondsLeft = WARNING_WINDOW / 1000;
+            clock.innerText = secondsLeft + "s";
+
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+                clock.innerText = secondsLeft + "s";
+                if (secondsLeft <= 0) clearInterval(countdownInterval);
+            }, 1000);
+        }
+
+        function startIdleTimer() {
+            window.onmousemove = resetIdleTimer;
+            window.onmousedown = resetIdleTimer;
+            window.onclick = resetIdleTimer;
+            window.onkeydown = resetIdleTimer;
+            resetIdleTimer();
+        }
+
+        function lockdownTerminal() {
+            sessionStorage.removeItem("vtx_authenticated");
+            window.location.reload();
+        }
+
+        function handleDecryption() {
+            const overlay = document.getElementById("vaultOverlay");
+            const keyInput = document.getElementById("vault-key");
+            if (!overlay || !keyInput) return;
+
+            const enteredKey = keyInput.value.trim();
+
+            if (enteredKey === "VTX-2026-ADMIN") {
+                sessionStorage.setItem("vtx_authenticated", "true");
+                window.location.href = "/Dashboard";
+            }
+            else if (enteredKey === "VTX-GUEST-2026") {
+                sessionStorage.setItem("vtx_authenticated", "guest");
+                window.location.href = "/Dashboard";
+            }
+            else {
+                alert("ACCESS DENIED: Invalid Authorization Code.");
+            }
+        }
+
+        function handleLogin(passcode) {
+            if (passcode === 'VTX-2026-ADMIN') {
+                sessionStorage.setItem('isAuthenticated', 'true');
+                sessionStorage.setItem('userRole', 'ADMIN');
+                window.location.href = '/Dashboard';
+            } else if (passcode === 'VTX-GUEST-2026') {
+                sessionStorage.setItem('isAuthenticated', 'true');
+                sessionStorage.setItem('userRole', 'GUEST');
+                alert('Guest access authenticated. Admin dashboard remains locked.');
+                window.location.href = 'index.html';
+            } else {
+                alert('Invalid credentials.');
+            }
+        }
+
+        // Intercept ONLY ticket form submittals
+        document.addEventListener('submit', function (event) {
+            // Check if the submitted form is the SecOps ticket form
+            if (event.target && event.target.id === 'secopsTicketForm') {
+                event.preventDefault();
+                event.stopPropagation();
+                submitSecopsTicket(event);
+                return false;
+            }
+        }, true);
+
+        // MSAL Configuration for Vertex-SecOps-Console
+        const msalConfig = {
+            auth: {
+                clientId: "52f3d140-22b3-4a99-a07f-ef7970d9724e",
+                authority: "https://login.microsoftonline.com/0ea0e445-5697-44ff-ae41-9b3a18fba136",
+                redirectUri: window.location.origin + "/index.html",
+            },
+            cache: {
+                cacheLocation: "sessionStorage",
+                storeAuthStateInCookie: false
+            }
+        };
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        async function loginWithEntraID() {
+            try {
+                const loginResponse = await msalInstance.loginPopup({
+                    scopes: ["User.Read", "openid", "profile", "email"]
+                });
+
+                // Store tokens & session state
+                sessionStorage.setItem("idToken", loginResponse.idToken);
+                sessionStorage.setItem("userName", loginResponse.account.name || loginResponse.account.username);
+                sessionStorage.setItem("isAuthenticated", "true");
+                sessionStorage.setItem("vtx_authenticated", "true");
+
+                // RBAC validation via App Roles
+                const roles = loginResponse.idTokenClaims.roles || [];
+                if (roles.includes("SecOps.Admin")) {
+                    sessionStorage.setItem("userRole", "ADMIN");
+                    window.location.replace("Dashboard.html");
+                } else {
+                    sessionStorage.setItem("userRole", "GUEST");
+                    alert("Authenticated as Guest. Admin console access restricted.");
+                }
+            } catch (error) {
+                console.error("Entra ID Login Failed:", error);
+                alert("Authentication failed: " + (error.errorMessage || error.message));
+            }
+        }
+
+    </script>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+
+    <link rel="icon" href="data:,">
+
+</body>
+
+</html>

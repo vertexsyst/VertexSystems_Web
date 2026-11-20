@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- ==========================================================================
+    VERTEX SYSTEMS - ADMINISTRATIVE SECOPS DASHBOARD
+    ========================================================================== -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertex Systems - SecOps Dashboard</title>
+    <link rel="icon" href="data:,">
+
+    <!-- 🔒 1. SYNCHRONOUS AUTHENTICATION GUARD (Executes before DOM paint) -->
+    <script>
+        (function () {
+            const auth = sessionStorage.getItem('isAuthenticated') || sessionStorage.getItem('vtx_authenticated');
+            const role = (sessionStorage.getItem('userRole') || '').trim().toUpperCase();
+
+            // Block access if not authenticated or role is not ADMIN
+            if (auth !== 'true' || (role && role !== 'ADMIN')) {
+                alert('RESTRICTED ACCESS: Administrative authorization required.');
+                sessionStorage.clear();
+                window.location.replace('index.html');
+            }
+        })();
+    </script>
+
+    <!-- Core External Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Local Dashboard Styles & Layout Overrides -->
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #00ff66;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 30px;
+            margin: 0;
+        }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            border: 1px solid #00ff66;
+            background: rgba(11, 15, 25, 0.9);
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.2);
+            padding: 20px;
+        }
+
+        .console-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #00ff66;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .console-controllers {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .controller-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .search-group {
+            flex-grow: 1;
+        }
+
+        .lock-terminal-btn {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .global-purge-btn {
+            background: #7f1d1d;
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+            padding: 10px;
+            width: 100%;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: monospace;
+            margin-bottom: 15px;
+        }
+
+        .ticket-grid {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 15px;
+        }
+
+        .ticket-card {
+            border: 1px solid #334155;
+            padding: 15px;
+            background: #111827;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Slide-out Left Investigation & Diagnostic Drawer */
+        .investigation-drawer {
+            position: fixed;
+            top: 0;
+            left: -380px;
+            width: 380px;
+            height: 100vh;
+            background-color: #0b0f19;
+            border-right: 1px solid #00ff66;
+            box-shadow: 4px 0 20px rgba(0, 255, 102, 0.2);
+            transition: left 0.3s ease-in-out;
+            z-index: 9999;
+            padding: 20px;
+            color: #e2e8f0;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .investigation-drawer.active,
+        .investigation-drawer.open {
+            left: 0;
+        }
+
+        /* Slide-out Right System Tools Drawer */
+        .systools-drawer {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background-color: #0f172a;
+            border-left: 1px solid #00ffcc;
+            box-shadow: -4px 0 15px rgba(0, 255, 204, 0.2);
+            transition: right 0.3s ease-in-out;
+            z-index: 9998;
+            padding: 20px;
+            color: #e2e8f0;
+            box-sizing: border-box;
+            display: none;
+            overflow-y: auto;
+        }
+
+        .systools-drawer.open {
+            right: 0;
+            display: block;
+        }
+
+        /* Drawer Trigger Floating Buttons */
+        .investigation-trigger-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #00e5ff;
+            color: #0b0f19;
+            border: none;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-family: monospace;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+            z-index: 9990;
+        }
+
+        .systools-trigger-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #00ffcc;
+            color: #0b0f19;
+            border: none;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-family: monospace;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            z-index: 9990;
+        }
+
+        /* Styled Action Buttons for Local Diagnostic Launcher */
+        .action-btn,
+        .tool-btn {
+            background: #111827;
+            color: #00ff66;
+            border: 1px solid #00ff66;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            width: 100%;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .action-btn:hover,
+        .tool-btn:hover {
+            background: #00ff66;
+            color: #0b0f19;
+            box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+        }
+
+        /* Architecture Drawer Container */
+        .arch-drawer-container {
+            background-color: #0D1117;
+            border: 1px solid #30363D;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Toggle Header Button */
+        .arch-drawer-toggle {
+            width: 100%;
+            background-color: #161B22;
+            color: #F3F2F1;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: left;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .arch-drawer-toggle:hover {
+            background-color: #21262D;
+        }
+
+        /* Arrow Icon Transition */
+        .arch-drawer-toggle .arrow {
+            transition: transform 0.3s ease;
+            color: #0078D4;
+            /* Entra Blue accent */
+        }
+
+        /* Collapsible Content Panel */
+        .arch-drawer-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out, padding 0.4s ease;
+            background-color: #0D1117;
+            padding: 0 20px;
+        }
+
+        /* Active State when Open */
+        .arch-drawer-container.open .arch-drawer-content {
+            max-height: 1000px;
+            /* Adjust based on SVG height */
+            padding: 20px;
+            transition: max-height 0.5s ease-in, padding 0.4s ease;
+        }
+
+        .arch-drawer-container.open .arrow {
+            transform: rotate(180deg);
+        }
+
+        /* Responsive SVG Styling inside Drawer */
+        .arch-drawer-content img,
+        .arch-drawer-content svg {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard-container">
+
+        <!-- ==================================================================
+        1. CONSOLE SECURITY HEADER ROW
+        ================================================================== -->
+        <div class="console-header-row">
+            <h2>🛰️ VERTEX SYSTEMS // ADMINISTRATIVE OPERATIONS CONSOLE</h2>
+            <button class="lock-terminal-btn" onclick="lockdownConsoleManual()">
+                🔒 LOCK TERMINAL
+            </button>
+        </div>
+
+        <!-- ==================================================================
+        2. MULTI-TENANT CONSOLE CONTROLLERS & SEARCH
+        ================================================================== -->
+        <div class="console-controllers">
+            <!-- Environment Selector Dropdown -->
+            <div class="controller-group">
+                <label for="tenantFilter">🏢 ENVIRONMENT:</label>
+                <select id="tenantFilter" onchange="filterTenantView()"
+                    style="background:#0b0f19; color:#00ff66; border:1px solid #00ff66; padding:6px;">
+                    <option value="ALL">🌐 ALL CORPORATE TENANTS (GLOBAL ADMIN)</option>
+                    <option value="ALPHA_CORP">🏢 ALPHA_CORP (Standard)</option>
+                    <option value="BETA_INC">🏢 BETA_INC (Premium)</option>
+                </select>
+            </div>
+
+            <!-- Real-Time Workspace Search Input -->
+            <div class="controller-group search-group">
+                <label for="workspaceSearch">🔍 SEARCH WORKSPACE:</label>
+                <input type="text" id="workspaceSearch" onkeyup="searchWorkspaceCards()"
+                    placeholder="Type to search categories, devices, descriptions, or resolution notes..."
+                    style="background:#0b0f19; color:#00ff66; border:1px solid #00ff66; padding:6px;" />
+            </div>
+        </div>
+
+        <!-- Global Database Purge Trigger -->
+        <button id="purgeBtn" class="global-purge-btn" onclick="openPurgeModal()">
+            ⚠️ EXECUTE GLOBAL PURGE (DELETE ALL RECORDS)
+        </button>
+
+        <div class="console-divider"></div>
+
+        <!-- ==================================================================
+        3. DYNAMIC TICKET CONTAINER GRID & INITIALIZATION
+        ================================================================== -->
+        <div id="ticketContainer" class="ticket-grid">
+            <div class="sql-loader">
+                <span class="status-pulse"></span>
+                <span class="loader-text">Initializing data link to SQL Server Express...</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ======================================================================
+    4. SYSTEM TOOLS & INVESTIGATION DRAWERS
+    ====================================================================== -->
+
+    <!-- LEFT SIDE INVESTIGATION & LOCAL DIAGNOSTICS DRAWER -->
+    <div id="investigationDrawer" class="investigation-drawer">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #00ff66;">🔍 Investigation & Diagnostics</h3>
+            <button onclick="toggleInvestigationDrawer()"
+                style="background:none; border:none; color:#00ff66; cursor:pointer; font-size:20px; font-weight:bold;">✕</button>
+        </div>
+        <hr style="border-color: #00ff66; margin: 15px 0;">
+
+        <!-- External OSINT Section -->
+        <h4 style="color: #00e5ff; margin-bottom: 10px;">External OSINT & Telemetry</h4>
+        <ul style="list-style: none; padding: 0; margin-bottom: 25px;">
+            <li style="margin-bottom: 8px;"><a href="https://www.virustotal.com" target="_blank"
+                    style="color: #38bdf8; text-decoration: none;">🌐 VirusTotal Lookup</a></li>
+            <li style="margin-bottom: 8px;"><a href="https://mxtoolbox.com" target="_blank"
+                    style="color: #38bdf8; text-decoration: none;">📧 MXToolbox Header Analyzer</a></li>
+            <li style="margin-bottom: 8px;"><a href="https://urlscan.io" target="_blank"
+                    style="color: #38bdf8; text-decoration: none;">🔍 URLScan.io</a></li>
+        </ul>
+
+        <hr style="border: 1px solid #1f293d; margin: 20px 0;">
+
+        <!-- Native Windows Diagnostics Launcher -->
+        <h4 style="color: #00ff66; margin-bottom: 12px;">Local System Tools</h4>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button class="action-btn" onclick="launchSystemTool('control_panel')">🎛️ Control Panel</button>
+            <button class="action-btn" onclick="launchSystemTool('task_mgr')">📊 Task Manager</button>
+            <button class="action-btn" onclick="launchSystemTool('dev_mgmt')">🖥️ Device Manager</button>
+            <button class="action-btn" onclick="launchSystemTool('regedit')">🔑 Registry Editor</button>
+            <button class="action-btn" onclick="launchSystemTool('event_vwr')">📜 Event Viewer</button>
+            <button class="action-btn" onclick="launchSystemTool('firewall')">🛡️ Windows Firewall</button>
+            <button class="action-btn" onclick="launchSystemTool('services')">⚙️ Services Console</button>
+            <button class="action-btn" onclick="launchSystemTool('net_conn')">🌐 Network Connections</button>
+            <button class="action-btn" onclick="launchSystemTool('cmd')">💻 Command Prompt</button>
+            <button class="action-btn" onclick="launchSystemTool('powershell')">⚡ PowerShell</button>
+            <button class="action-btn" onclick="launchSystemTool('res_mon')">📈 Resource Monitor</button>
+            <button class="action-btn" onclick="launchSystemTool('sys_info')">ℹ️ System Information</button>
+        </div>
+    </div>
+
+    <!-- RIGHT SYSTEM TOOLS & MMC DRAWER -->
+    <div id="systools-drawer" class="systools-drawer">
+        <div class="systools-header"
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px;">
+            <h3 style="margin: 0; color: #00ffcc;">⚙️ SYSTEM TOOLS & MMC LAUNCHER</h3>
+            <button id="close-drawer-btn" class="close-btn"
+                style="background:none; border:none; color:#fff; cursor:pointer; font-size:20px;"
+                onclick="const d = document.getElementById('systools-drawer'); d.classList.remove('open'); d.style.display='none';">&times;</button>
+        </div>
+        <div id="systools-list" class="systools-body" style="margin-top: 15px;">
+            <!-- JS injects tool cards here on first open -->
+        </div>
+    </div>
+
+    <!-- FLOATING TRIGGER BUTTON FOR INVESTIGATION DRAWER (LEFT SIDE) -->
+    <button class="investigation-trigger-btn" onclick="toggleInvestigationDrawer()">
+        🔍 OSINT
+    </button>
+
+    <!-- FLOATING TRIGGER BUTTON FOR MMC TOOLS (RIGHT SIDE) -->
+    <button id="open-drawer-btn" class="systools-trigger-btn" onclick="
+        const list = document.getElementById('systools-list');
+        if (list && !list.children.length) {
+            const tools = [
+                { name: 'Active Directory Users & Computers', cmd: 'dsa.msc', desc: 'Manage domain users, groups, and OU structures.' },
+                { name: 'DNS Manager', cmd: 'dnsmgmt.msc', desc: 'Manage forward/reverse lookups and DNS forwarders.' },
+                { name: 'Hyper-V Manager', cmd: 'virtmgmt.msc', desc: 'Control panel for lab virtual machines and vSwitches.' },
+                { name: 'Group Policy Management', cmd: 'gpmc.msc', desc: 'Deploy domain-wide GPOs and security policies.' },
+                { name: 'DHCP Manager', cmd: 'dhcpmgmt.msc', desc: 'Manage IP address pools, scopes, and leases.' },
+                { name: 'Computer Management', cmd: 'compmgmt.msc', desc: 'Access Task Scheduler, Event Viewer, and Disk Management.' },
+                { name: 'Event Viewer', cmd: 'eventvwr.msc', desc: 'Review security audits, system logs, and application warnings.' }
+            ];
+            list.innerHTML = tools.map(t => `
+                <div class='systool-card' style='border: 1px solid #334155; padding: 10px; margin-bottom: 10px; border-radius: 4px; background: #0b0f19;'>
+                    <div class='systool-info'>
+                        <h4 style='margin: 0 0 5px 0; color: #00ffcc;'>${t.name}</h4>
+                        <p style='margin: 0 0 5px 0; font-size: 11px; color: #94a3b8;'>${t.desc}</p>
+                        <span class='systool-cmd' style='color: #f59e0b; font-size: 11px;'>${t.cmd}</span>
+                    </div>
+                    <div class='systool-actions' style='display: flex; gap: 6px; margin-top: 8px;'>
+                        <button class='copy-btn' onclick='launchTool(&quot;${t.cmd}&quot;)' style='background: rgba(0,255,204,0.15); border: 1px solid #00ffcc; color: #00ffcc; cursor: pointer; padding: 4px 8px;'>LAUNCH</button>
+                        <button class='copy-btn' onclick='navigator.clipboard.writeText(&quot;${t.cmd}&quot;)' style='background: #334155; border: none; color: #fff; cursor: pointer; padding: 4px 8px;'>COPY</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        const drawer = document.getElementById('systools-drawer');
+        drawer.style.display = 'block';
+        drawer.classList.add('open');
+    ">
+        ⚙ TOOLS
+    </button>
+
+    <!-- ======================================================================
+    5. MODAL OVERLAYS (PURGE & INGESTION)
+    ====================================================================== -->
+
+    <!-- GLOBAL PURGE SAFETY MODAL -->
+    <div id="purgeModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+        <div
+            style="background:#0f172a; border:2px solid #ef4444; padding:24px; border-radius:8px; width:420px; color:#f8fafc; font-family:monospace;">
+            <h3 style="color:#ef4444; margin-top:0;">⚠️ CRITICAL WARNING: GLOBAL PURGE</h3>
+            <p style="font-size:13px; color:#cbd5e1;">This action will permanently delete ALL security records from
+                <code>VertexSecOps</code>. This action cannot be undone.
+            </p>
+            <p style="font-size:12px; color:#94a3b8;">Type <strong>PURGE</strong> below to authorize execution:</p>
+
+            <input type="text" id="purgeConfirmInput" placeholder="Type PURGE to confirm"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#f8fafc; margin-bottom:16px; box-sizing:border-box;">
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closePurgeModal()"
+                    style="background:#334155; color:#f8fafc; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;">CANCEL</button>
+                <button id="btnExecutePurge" onclick="submitGlobalPurge()"
+                    style="background:#ef4444; color:#fff; border:none; padding:8px 16px; cursor:pointer; border-radius:4px; opacity:0.5;"
+                    disabled>EXECUTE PURGE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INGESTION MODAL -->
+    <div id="newTicketModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9998; align-items:center; justify-content:center;">
+        <div
+            style="background:#0f172a; border:1px solid #10b981; padding:24px; border-radius:8px; width:480px; color:#f8fafc; font-family:monospace;">
+            <h3 style="color:#10b981; margin-top:0;">➕ INGEST NEW SECURITY INCIDENT</h3>
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">CLIENT / TENANT NAME</label>
+            <input type="text" id="ingestClient" placeholder="e.g. ALPHA_CORP"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:12px; box-sizing:border-box;">
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">CLIENT EMAIL</label>
+            <input type="email" id="ingestEmail" placeholder="admin@client.com"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:12px; box-sizing:border-box;">
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">CATEGORY</label>
+            <input type="text" id="ingestCategory" placeholder="e.g. Security Alert, SQL Audit"
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:12px; box-sizing:border-box;">
+
+            <label style="display:block; font-size:11px; margin-bottom:4px;">MESSAGE / INCIDENT DETAILS</label>
+            <textarea id="ingestDetails" rows="3" placeholder="Describe telemetry anomaly or security alert..."
+                style="width:100%; padding:8px; background:#020617; border:1px solid #334155; color:#fff; margin-bottom:16px; box-sizing:border-box;"></textarea>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closeNewTicketModal()"
+                    style="background:#334155; color:#f8fafc; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;">CANCEL</button>
+                <button onclick="submitNewTicket()"
+                    style="background:#10b981; color:#0f172a; font-weight:bold; border:none; padding:8px 16px; cursor:pointer; border-radius:4px;">CREATE
+                    TICKET</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="arch-drawer-container" id="archDrawer">
+        <button class="arch-drawer-toggle" onclick="toggleArchDrawer()">
+            <span>Vertex Systems: Master System Architecture (3-Tier Topology)</span>
+            <span class="arrow">&#9660;</span>
+        </button>
+        <div class="arch-drawer-content">
+            <!-- Replace with your actual SVG filename or inline SVG code -->
+            <img src='{{ url_for("static", filename="images/Vertex_Master_System_Architecture.png") }}'
+                alt="Vertex Master System Architecture">
+        </div>
+    </div>
+
+    <!-- ======================================================================
+    6. CLIENT-SIDE DASHBOARD ENGINE & API HANDLERS
+    ====================================================================== -->
+    <script>
+        // 🔒 Manual Lockdown Handler
+        function lockdownConsoleManual() {
+            console.warn("SECURITY OVERRIDE: Manual session termination initialized.");
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = "index.html";
+        }
+
+        // 🛰️ CORE VIEW ENGINE: Pulls live records from Flask -> SQL Server Express
+        async function loadDashboardTickets() {
+            try {
+                const selectedTenant = document.getElementById('tenantFilter')?.value;
+
+                let url = '/api/dashboard/tickets';
+                if (selectedTenant && selectedTenant !== 'ALL') {
+                    url += `?client=${selectedTenant}`;
+                }
+
+                console.log(`📡 Requesting isolated payload from: ${url}`);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP network error: ${response.status}`);
+                const tickets = await response.json();
+
+                renderDashboardCards(tickets);
+
+            } catch (error) {
+                console.warn("⚠️ Flask API offline. Loading fallback telemetry into console grid...", error);
+
+                const mockTickets = [
+                    { id: 101, deviceName: "DC-01 (Active Directory)", alertType: "Kerberos TGT Anomaly", tenantId: "ALPHA_CORP", status: "NEW", severity: "HIGH", riskScore: 88, timestamp: "2026-08-04 16:35", assignmentGroup: "SecOps Triage", notes: "Suspicious ticket requests detected." },
+                    { id: 102, deviceName: "SQL-DB-PROD", alertType: "Failed Auth Threshold Exceeded", tenantId: "BETA_INC", status: "ASSIGNED", severity: "CRITICAL", riskScore: 94, timestamp: "2026-08-04 16:12", assignmentGroup: "Database Sec", notes: "Investigating IP 192.168.1.105." },
+                    { id: 103, deviceName: "FW-EDGE-02", alertType: "Port Scan Mitigated", tenantId: "ALPHA_CORP", status: "RESOLVED", severity: "LOW", riskScore: 12, timestamp: "2026-08-04 15:45", assignmentGroup: "NetOps", notes: "Automated drop rule applied." }
+                ];
+
+                renderDashboardCards(mockTickets);
+            }
+        }
+
+        // Render expandable ticket cards
+        function renderDashboardCards(tickets) {
+            const container = document.getElementById('ticketContainer');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (!tickets || tickets.length === 0) {
+                container.innerHTML = '<p style="color: #94a3b8; font-family: monospace;">No active records logged in database query.</p>';
+                return;
+            }
+
+            tickets.forEach(ticket => {
+                const card = document.createElement('div');
+                card.className = 'ticket-card';
+                card.style.display = 'block';
+                card.setAttribute('data-tenant', ticket.tenantId || 'ALL');
+
+                card.innerHTML = `
+                    <details style="width: 100%; cursor: pointer;">
+                        <summary style="display: flex; justify-content: space-between; align-items: center; list-style: none;">
+                            <div style="display: flex; gap: 15px; font-family: monospace;">
+                                <span style="color: #00ff66; font-weight: bold;">🆔 #${ticket.id}</span>
+                                <strong style="color: #38bdf8;">${ticket.deviceName || 'Unknown'}</strong>
+                                <span style="color: #94a3b8;">[${ticket.alertType || 'Alert'}]</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; font-family: monospace;">
+                                <span style="color: #a855f7; font-weight: bold; font-size: 12px; background: #1e1b4b; padding: 2px 6px; border-radius: 3px;">${ticket.tenantId || 'GLOBAL'}</span>
+                                <span style="color: ${ticket.status === 'NEW' ? '#10b981' : '#f59e0b'}; font-size: 12px;">● ${ticket.status || 'NEW'}</span>
+                                <span style="color: #64748b; font-size: 14px;">▼</span>
+                            </div>
+                        </summary>
+
+                        <div style="margin-top: 15px; border-top: 1px dashed #334155; padding-top: 15px; cursor: default;" onclick="event.stopPropagation();">
+                            <div style="background: #0b0f19; padding: 10px; border-left: 2px solid #00ff66; color: #e2e8f0; font-family: monospace; margin-bottom: 12px; line-height: 1.6;">
+                                <strong>Severity:</strong> ${ticket.severity || 'NORMAL'} | <strong>Risk:</strong> ${ticket.riskScore || 0}% | <strong>Time:</strong> ${ticket.timestamp || 'Live Stream'}
+                                <br>
+                                <span style="color: #94a3b8;">👥 <strong>Assignment Group:</strong></span> <span style="color: #38bdf8;">${ticket.assignmentGroup || 'UNASSIGNED'}</span>
+                            </div>
+
+                            <div class="lifecycle-controls">
+                                <label style="display:block; font-size:11px; color:#94a3b8; font-family:monospace; margin-bottom:4px;">WORKFLOW STATUS</label>
+                                <select id="status-${ticket.id}" onchange="handleStatusChange(${ticket.id}, this.value)" style="background:#0b0f19; color:#f8fafc; border:1px solid #334155; padding:6px; width:100%;">
+                                    <option value="NEW" ${ticket.status === 'NEW' ? 'selected' : ''}>🟩 NEW UNASSIGNED</option>
+                                    <option value="ASSIGNED" ${ticket.status === 'ASSIGNED' ? 'selected' : ''}>🟧 ASSIGNED TO TRIAGE</option>
+                                    <option value="RESOLVED" ${ticket.status === 'RESOLVED' ? 'selected' : ''}>🟦 RESOLVED & CLOSED</option>
+                                </select>
+
+                                <label style="display:block; font-size:11px; color:#94a3b8; font-family:monospace; margin-bottom:4px; margin-top:10px;">ENGINEERING JOURNAL & NOTES</label>
+                                <textarea id="notes-${ticket.id}" placeholder="Enter operational activity updates..." style="background:#0b0f19; color:#f8fafc; border:1px solid #334155; padding:6px; width:100%; border-radius:4px; font-family:monospace; font-size:12px; min-height:50px; resize:vertical;">${ticket.notes || ''}</textarea>
+
+                                <button onclick="saveTicketLifecycle(${ticket.id})" style="background:#10b981; color:#0f172a; border:none; padding:8px; width:100%; font-weight:bold; cursor:pointer; margin-top:8px; border-radius:4px;">
+                                    💾 COMMIT OPERATIONAL LOGS
+                                </button>
+                            </div>
+                        </div>
+                    </details>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // 🔍 Real-Time Card Filtering
+        function searchWorkspaceCards() {
+            const searchQuery = document.getElementById('workspaceSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('#ticketContainer .ticket-card');
+
+            cards.forEach(card => {
+                const cardText = card.textContent.toLowerCase();
+                card.style.display = cardText.includes(searchQuery) ? "" : "none";
+            });
+        }
+
+        // 🔄 Environment Filter Trigger
+        function filterTenantView() {
+            const searchInput = document.getElementById('workspaceSearch');
+            if (searchInput) searchInput.value = '';
+            loadDashboardTickets();
+        }
+
+        // 💾 Save Journal Notes with Auto-Timestamping
+        function saveTicketLifecycle(ticketId) {
+            const textarea = document.getElementById(`notes-${ticketId}`);
+            if (!textarea) return;
+
+            const rawNotes = textarea.value.trim();
+            if (!rawNotes) return;
+
+            const now = new Date();
+            const YYYY = now.getFullYear();
+            const MM = String(now.getMonth() + 1).padStart(2, '0');
+            const DD = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const currentTimestamp = `[${YYYY}-${MM}-${DD} ${hh}:${mm}]`;
+
+            const lines = rawNotes.split('\n');
+            let formattedText = '';
+            let inUntaggedBlock = false;
+
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                const hasHeader = /^\[\d{4}-\d{2}-\d{2}/.test(trimmed);
+
+                if (hasHeader) {
+                    inUntaggedBlock = false;
+                    formattedText += (index === 0 ? '' : '\n\n') + trimmed;
+                } else if (trimmed === '') {
+                    inUntaggedBlock = false;
+                } else {
+                    if (!inUntaggedBlock && !formattedText.endsWith(currentTimestamp)) {
+                        formattedText += (formattedText ? '\n\n' : '') + `${currentTimestamp}\n${trimmed}`;
+                        inUntaggedBlock = true;
+                    } else {
+                        formattedText += `\n${trimmed}`;
+                    }
+                }
+            });
+
+            textarea.value = formattedText;
+
+            fetch(`/api/tickets/${ticketId}/notes`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: formattedText })
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+                    return response.json();
+                })
+                .then(data => alert(`Journal entry committed for Ticket #${ticketId}!`))
+                .catch(error => alert('Failed to save log entry.'));
+        }
+
+        // Send Status Changes to Backend
+        async function handleStatusChange(ticketId, newStatus) {
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (response.ok) {
+                    console.log(`[TICKET UPDATE] Ticket #${ticketId} changed to ${newStatus}`);
+                    loadDashboardTickets();
+                } else {
+                    const result = await response.json();
+                    alert(`Failed to update status: ${result.message}`);
+                }
+            } catch (err) {
+                console.error('[NETWORK ERROR]', err);
+            }
+        }
+
+        // ⚙️ Left Drawer Toggle Handler
+        function toggleInvestigationDrawer() {
+            const drawer = document.getElementById('investigationDrawer');
+            if (drawer) drawer.classList.toggle('active');
+        }
+
+        // 🛠️ Local Diagnostic Tool Launcher Handler
+        async function launchSystemTool(toolKey) {
+            // Check MSAL token storage keys
+            const token = sessionStorage.getItem("idToken") ||
+                sessionStorage.getItem("accessToken") ||
+                sessionStorage.getItem("vtx_token");
+
+            if (!token || token === "true" || token.split(".").length !== 3) {
+                alert("Authentication Error: Valid Entra ID JWT missing or expired. Please re-authenticate via index.html.");
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/tools/launch", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ tool: toolKey })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    console.log(`[TOOLS] ${result.message}`);
+                } else {
+                    alert(`Execution Failed: ${result.message}`);
+                }
+            } catch (error) {
+                console.error("Error launching tool:", error);
+                alert("Failed to connect to local Flask agent.");
+            }
+        }
+
+        // ⚙️ MMC Tool Launcher via API
+        async function launchTool(cmd) {
+            try {
+                const response = await fetch(`/api/launch/${cmd}`, { method: 'POST' });
+                const result = await response.json();
+                if (response.ok) {
+                    console.log(`[SYS LAUNCH] ${result.message}`);
+                } else {
+                    console.error(`[SYS LAUNCH FAILED] ${result.message}`);
+                }
+            } catch (err) {
+                console.error('[SYS LAUNCH ERROR]', err);
+            }
+        }
+
+        // Modal Controls
+        function openPurgeModal() {
+            const modal = document.getElementById('purgeModal');
+            const input = document.getElementById('purgeConfirmInput');
+            const btn = document.getElementById('btnExecutePurge');
+            input.value = '';
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            modal.style.display = 'flex';
+
+            input.oninput = function () {
+                if (input.value.trim() === 'PURGE') {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                } else {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                }
+            };
+        }
+
+        function closePurgeModal() {
+            document.getElementById('purgeModal').style.display = 'none';
+        }
+
+        async function submitGlobalPurge() {
+            try {
+                const response = await fetch('/api/admin/purge-all', { method: 'DELETE' });
+                const res = await response.json();
+                if (response.ok) {
+                    alert('Global Purge Executed: All records deleted.');
+                    closePurgeModal();
+                    loadDashboardTickets();
+                } else {
+                    alert(`Purge Failed: ${res.message}`);
+                }
+            } catch (err) {
+                console.error('[PURGE ERROR]', err);
+            }
+        }
+
+        function openNewTicketModal() {
+            document.getElementById('newTicketModal').style.display = 'flex';
+        }
+
+        function closeNewTicketModal() {
+            document.getElementById('newTicketModal').style.display = 'none';
+        }
+
+        async function submitNewTicket() {
+            const payload = {
+                clientName: document.getElementById('ingestClient').value,
+                clientEmail: document.getElementById('ingestEmail').value,
+                category: document.getElementById('ingestCategory').value,
+                messageDetails: document.getElementById('ingestDetails').value
+            };
+
+            if (!payload.clientName || !payload.messageDetails) {
+                alert('Please fill out Client Name and Message Details.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tickets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`Ticket ingested successfully! Serial: ${result.ticket_serial}`);
+                    closeNewTicketModal();
+                    loadDashboardTickets();
+                } else {
+                    alert(`Ingestion failed: ${result.message}`);
+                }
+            } catch (err) {
+                console.error('[INGEST ERROR]', err);
+            }
+        }
+
+        // Global scope bindings
+        window.saveTicketLifecycle = saveTicketLifecycle;
+        window.handleStatusChange = handleStatusChange;
+        window.openPurgeModal = openPurgeModal;
+        window.closePurgeModal = closePurgeModal;
+        window.submitGlobalPurge = submitGlobalPurge;
+        window.openNewTicketModal = openNewTicketModal;
+        window.closeNewTicketModal = closeNewTicketModal;
+        window.submitNewTicket = submitNewTicket;
+        window.toggleInvestigationDrawer = toggleInvestigationDrawer;
+        window.toggleOsintDrawer = toggleInvestigationDrawer;
+        window.launchSystemTool = launchSystemTool;
+        window.launchTool = launchTool;
+
+        // Initialize Console on Load
+        document.addEventListener("DOMContentLoaded", () => {
+            const searchInput = document.getElementById('workspaceSearch');
+            const tenantFilter = document.getElementById('tenantFilter');
+
+            if (searchInput) searchInput.value = '';
+            if (tenantFilter) tenantFilter.value = 'ALL';
+
+            loadDashboardTickets();
+        });
+
+        function toggleArchDrawer() {
+            const drawer = document.getElementById('archDrawer');
+            drawer.classList.toggle('open');
+        }
+
+    </script>
+</body>
+
+</html>
