@@ -314,9 +314,6 @@ def require_entra_auth(f):
 # 5. STATIC PAGE ROUTES & ACCESS CONTROL
 # =========================================================================
 
-@app.route('/dashboard')
-def dashboard():
-    return render_template('Dashboard.html')
 
 @app.route('/api/v1/directory/sync', methods=['GET', 'POST'])
 def sync_entra_directory():
@@ -1314,6 +1311,14 @@ def get_executive_vault_resources():
 
 
 
+@app.route('/api/credentials', methods=['GET'])
+def list_credentials():
+    creds_dir = os.path.join(app.root_path, 'Credentials')
+    if not os.path.isdir(creds_dir):
+        return jsonify([]), 200
+    files = sorted([f for f in os.listdir(creds_dir) if f.lower().endswith('.png')], key=str.lower)
+    return jsonify(files), 200
+
 # ==========================================
 # 8. RUNTIME SERVER DRIVER & ROUTE AUDIT
 # ==========================================
@@ -1324,4 +1329,4 @@ for rule in app.url_map.iter_rules():
 if __name__ == '__main__':
     from waitress import serve
     print("🚀 Starting Vertex SecOps Production Server on http://localhost:5000...")
-    serve(app, host='127.0.0.1', port=5000)
+    serve(app, host='127.0.0.1', port=5000, threads=12)
